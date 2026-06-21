@@ -7,7 +7,7 @@
     <key>ProgramArguments</key>
     <array>
         <!-- Command to start. Note: Update node path if needed (e.g. /opt/homebrew/bin/node) -->
-        <string>/usr/local/bin/node</string>
+        <string>/opt/homebrew/bin/node</string>
         <string>server.js</string>
     </array>
     <key>RunAtLoad</key>
