@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Video Downloader & Stream Extractor</title>
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── Design Tokens & Base Styles ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #090d16;
+  --surface: #131926;
+  --surface-hover: #1e2638;
+  --surface-light: #1d253a;
+  --border: #242f47;
+  --border-focus: #3b82f6;
+  
+  --text: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dark: #64748b;
+  
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-light: rgba(59, 130, 246, 0.1);
+  --accent-border: rgba(59, 130, 246, 0.3);
+  
+  --green: #10b981;
+  --green-hover: #059669;
+  --green-bg: rgba(16, 185, 129, 0.08);
+  --green-bd: rgba(16, 185, 129, 0.3);
+  
+  --red: #ef4444;
+  --red-hover: #dc2626;
+  --red-bg: rgba(239, 68, 68, 0.08);
+  --red-bd: rgba(239, 68, 68, 0.3);
+  
+  --amber: #f59e0b;
+  --amber-bg: rgba(245, 158, 11, 0.08);
+  --amber-bd: rgba(245, 158, 11, 0.3);
+  
+  --purple: #8b5cf6;
+  --purple-bg: rgba(139, 92, 246, 0.08);
+  --purple-bd: rgba(139, 92, 246, 0.3);
+  
+  --orange: #f97316;
+  --orange-bg: rgba(249, 115, 22, 0.08);
+  --orange-bd: rgba(249, 115, 22, 0.3);
+
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --display: 'Outfit', var(--sans);
+  --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --radius: 12px;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+body {
+  background: var(--bg);
+  background-image: radial-gradient(circle at 50% 0%, #1e293b 0%, #090d16 60%);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 100vh;
+  padding: 40px 24px 80px;
+  display: flex;
+  justify-content: center;
+}
+
+.container {
+  width: 100%;
+  max-width: 1240px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Header ── */
+header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 0 4px;
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-icon {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  font-family: var(--display);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.logo-text {
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.logo-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.pill {
+  font-size: 11px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  background: var(--surface);
+  font-family: var(--mono);
+  margin-left: auto;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pill.ok::before {
+  background: var(--green);
+}
+
+.pill.miss {
+  border-color: var(--red-bd);
+  color: var(--red);
+  background: var(--red-bg);
+}
+
+.pill.miss::before {
+  background: var(--red);
+}
+
+/* ── Card & Glassmorphism ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Folder bar ── */
+.folder-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  background: rgba(19, 25, 38, 0.5);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.folder-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.folder-path {
+  flex: 1;
+  min-width: 250px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 8px 12px;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.folder-path:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px var(--accent-light);
+}
+
+.folder-path::placeholder {
+  color: var(--text-dark);
+}
+
+/* ── Input ── */
+.input-bar {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.input-bar input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  padding: 10px 16px;
+  outline: none;
+  transition: all 0.2s;
+  min-width: 0;
+}
+
+.input-bar input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-light);
+  background: var(--surface);
+}
+
+.input-bar input::placeholder {
+  color: var(--text-dark);
+}
+
+.input-bar input.shake {
+  animation: shake 0.3s;
+  border-color: var(--red) !important;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* ── Buttons ── */
+button {
+  background: var(--surface-light);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 8px 14px;
+  transition: all 0.15s ease-in-out;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: #fff;
+  background: var(--accent-light);
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+button.danger {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: var(--red-bd);
+  color: var(--red);
+}
+
+button.danger:hover:not(:disabled) {
+  background: var(--red);
+  color: #fff;
+  border-color: var(--red);
+}
+
+button.green-btn {
+  background: var(--green-bg);
+  border-color: var(--green-bd);
+  color: var(--green);
+}
+
+button.green-btn:hover:not(:disabled) {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+}
+
+button.orange-btn {
+  background: var(--orange-bg);
+  border-color: var(--orange-bd);
+  color: var(--orange);
+}
+
+button.orange-btn:hover:not(:disabled) {
+  background: var(--orange);
+  color: #fff;
+  border-color: var(--orange);
+}
+
+button.folder-btn {
+  background: var(--purple-bg);
+  border-color: var(--purple-bd);
+  color: var(--purple);
+}
+
+button.folder-btn:hover:not(:disabled) {
+  background: var(--purple);
+  color: #fff;
+  border-color: var(--purple);
+}
+
+button.icon-only {
+  padding: 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Toolbar ── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(19, 25, 38, 0.3);
+  flex-wrap: wrap;
+}
+
+.toolbar .spacer {
+  flex: 1;
+}
+
+.counter {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--surface-light);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px 12px;
+}
+
+/* ── Extract progress ── */
+.extract-progress {
+  display: none;
+  padding: 12px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--accent-light);
+}
+
+.ep-track {
+  height: 4px;
+  background: rgba(59, 130, 246, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.ep-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+.ep-label {
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ── Table ── */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px;
+}
+
+/* Column widths */
+colgroup col:nth-child(1) { width: 40px; }   /* # */
+colgroup col:nth-child(2) { width: 15%; }    /* URL */
+colgroup col:nth-child(3) { width: 22%; }    /* Title */
+colgroup col:nth-child(4) { width: 80px; }   /* Res */
+colgroup col:nth-child(5) { width: 100px; }  /* Format */
+colgroup col:nth-child(6) { width: 80px; }   /* Size */
+colgroup col:nth-child(7) { width: 70px; }   /* Dur */
+colgroup col:nth-child(8) { width: auto; }   /* Stream */
+colgroup col:nth-child(9) { width: 95px; }   /* Status */
+colgroup col:nth-child(10) { width: 190px; } /* Actions */
+
+thead tr {
+  background: rgba(19, 25, 38, 0.5);
+  border-bottom: 1px solid var(--border);
+}
+
+thead th {
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+thead th:first-child {
+  text-align: center;
+}
+
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+
+tbody tr:last-child {
+  border-bottom: none;
+}
+
+tbody tr:hover {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+tbody tr.row-active {
+  background: var(--accent-light);
+}
+
+tbody tr.row-error {
+  background: var(--red-bg);
+}
+
+tbody tr.row-dl {
+  background: rgba(245, 158, 11, 0.03);
+}
+
+tbody td {
+  padding: 12px 14px;
+  font-size: 12px;
+  vertical-align: middle;
+  overflow: hidden;
+}
+
+.c-num {
+  text-align: center;
+  color: var(--text-dark);
+  font-size: 11px;
+  font-family: var(--mono);
+}
+
+.c-url {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.c-url a {
+  color: var(--accent);
+  text-decoration: none;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.c-url a:hover {
+  text-decoration: underline;
+}
+
+.c-title {
+  color: var(--text);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.c-title.empty {
+  color: var(--text-dark);
+  font-style: italic;
+}
+
+.c-fmt {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.c-size, .c-dur {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Resolution badge */
+.rb {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--mono);
+  white-space: nowrap;
+}
+
+.r-2160p, .r-4k { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple-bd); }
+.r-1440p { background: rgba(139, 92, 246, 0.05); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.2); }
+.r-1080p { background: var(--accent-light); color: var(--accent); border: 1px solid var(--accent-border); }
+.r-720p, .r-720p60 { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-bd); }
+.r-480p { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-bd); }
+.r-360p, .r-240p, .r-144p { background: var(--surface-light); color: var(--text-muted); border: 1px solid var(--border); }
+.r-audio { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange-bd); }
+.r-unknown { background: var(--surface-light); color: var(--text-dark); border: 1px solid var(--border); }
+
+/* Stream URL cell */
+.c-stream {
+  max-width: 0;
+}
+
+.stream-txt {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
+  transition: all 0.1s;
+}
+
+.stream-txt:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+
+.stream-txt.empty {
+  color: var(--text-dark);
+  font-style: italic;
+  cursor: default;
+  background: transparent;
+  border-color: transparent;
+}
+
+.stream-txt.err {
+  color: var(--red);
+  cursor: default;
+  background: var(--red-bg);
+  border-color: var(--red-bd);
+}
+
+/* Status badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.badge.queued { background: var(--surface-light); color: var(--text-muted); border-color: var(--border); }
+.badge.waiting { background: var(--amber-bg); color: var(--amber); border-color: var(--amber-bd); }
+.badge.active { background: var(--accent-light); color: var(--accent); border-color: var(--accent-border); }
+.badge.done { background: var(--green-bg); color: var(--green); border-color: var(--green-bd); }
+.badge.error { background: var(--red-bg); color: var(--red); border-color: var(--red-bd); }
+
+.badge.active .dot {
+  animation: blink 1.2s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.4; }
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* ── Action cell ── */
+.act-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.act-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.act-row button {
+  padding: 5px 8px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+/* ── Per-row download progress ── */
+.dl-prog {
+  display: none;
+}
+
+.dl-prog.on {
+  display: block;
+  margin-top: 6px;
+}
+
+.dl-track {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.dl-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+.dl-fill.ind {
+  width: 35% !important;
+  animation: slide 1.1s infinite linear;
+}
+
+@keyframes slide {
+  0% { margin-left: -35%; }
+  100% { margin-left: 100%; }
+}
+
+.dl-info {
+  font-size: 10px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.dl-pct {
+  font-weight: 700;
+  color: var(--green);
+  min-width: 30px;
+}
+
+.dl-spd, .dl-sz {
+  color: var(--text-dark);
+}
+
+/* ── Open folder row ── */
+.open-folder-row {
+  display: none;
+  margin-top: 4px;
+}
+
+.open-folder-row.on {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.saved-path {
+  font-size: 10px;
+  color: var(--text-dark);
+  font-family: var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Empty state ── */
+.empty-row td {
+  padding: 64px 20px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.ei {
+  font-size: 32px;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.et {
+  font-size: 14px;
+  color: var(--text);
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.es {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── Bottom bar ── */
+.bottom-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  background: rgba(19, 25, 38, 0.4);
+  flex-wrap: wrap;
+}
+
+.bottom-bar .spacer {
+  flex: 1;
+}
+
+.summary {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.summary b {
+  color: var(--text);
+}
+
+/* ── Toast ── */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--surface-light);
+  color: var(--text);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  z-index: 99;
+  max-width: 320px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="logo-container">
+      <div class="logo-icon">▼</div>
+      <div>
+        <div class="logo-text">YTV Downloader</div>
+        <div class="logo-sub">Extract stream URLs & download videos seamlessly</div>
+      </div>
+    </div>
+    <span class="pill" id="ytdlpPill">Checking yt-dlp status…</span>
+  </header>
+
+  <div class="card">
+    <!-- Save destination picker -->
+    <div class="folder-bar">
+      <span class="folder-label">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        Save to:
+      </span>
+      <input type="text" class="folder-path" id="folderPath" placeholder="Loading default folder…" spellcheck="false"/>
+      <button onclick="resetFolder()" title="Reset to Downloads folder">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+        Reset
+      </button>
+    </div>
+
+    <!-- URL Input bar -->
+    <div class="input-bar">
+      <input type="text" id="urlInput" placeholder="Paste a YouTube URL and press Enter…" autocomplete="off" spellcheck="false"/>
+      <button class="primary" onclick="addUrl()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        Add URL
+      </button>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <button class="primary" id="extractBtn" disabled onclick="startExtraction()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        Extract All
+      </button>
+      <button id="clearBtn" disabled class="danger" onclick="clearAll()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        Clear List
+      </button>
+      <span class="spacer"></span>
+      <span class="counter" id="counter" style="display:none"></span>
+    </div>
+
+    <!-- Extraction progress -->
+    <div class="extract-progress" id="extractProgress">
+      <div class="ep-track"><div class="ep-fill" id="epFill"></div></div>
+      <div class="ep-label" id="epLabel">Extracting stream URLs…</div>
+    </div>
+
+    <!-- Table scroll container -->
+    <div class="table-scroll">
+      <table>
+        <colgroup><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/></colgroup>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>YouTube URL</th>
+            <th>Title</th>
+            <th>Res</th>
+            <th>Format</th>
+            <th>Size</th>
+            <th>Dur</th>
+            <th>Stream URL</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr class="empty-row">
+            <td colspan="10">
+              <span class="ei">🎬</span>
+              <div class="et">No URLs Added Yet</div>
+              <div class="es">Paste a YouTube URL above to begin extraction</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Bottom panel -->
+    <div class="bottom-bar">
+      <button id="dlCsvBtn" disabled onclick="downloadCsv()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4</path><polyline points="7 10 12 15 17 10</polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Download CSV
+      </button>
+      <button id="copyCsvBtn" disabled onclick="copyCsv()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        Copy CSV
+      </button>
+      <span class="spacer"></span>
+      <span class="summary" id="summary"></span>
+    </div>
+  </div>
+</div>
+
+<div id="toast">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+  <span id="toastMsg">Notification</span>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────
+const rows = [];
+let defaultFolder = '';
+
+// ── Boot ───────────────────────────────────────────────────────────────
+fetch('/check').then(r=>r.json()).then(d=>{
+  const el=document.getElementById('ytdlpPill');
+  if(d.installed){
+    el.textContent=`yt-dlp ${d.version}`;
+    el.className='pill ok';
+  } else {
+    el.textContent='yt-dlp not found';
+    el.className='pill miss';
+  }
+}).catch(() => {
+  const el=document.getElementById('ytdlpPill');
+  el.textContent='Offline / Server unreachable';
+  el.className='pill miss';
+});
+
+fetch('/default-folder').then(r=>r.json()).then(d=>{
+  defaultFolder=d.folder;
+  document.getElementById('folderPath').value=d.folder;
+  document.getElementById('folderPath').placeholder=d.folder;
+  loadSavedState();
+});
+
+function resetFolder(){
+  document.getElementById('folderPath').value=defaultFolder;
+  saveCurrentState();
+  toast('Reset to default folder');
+}
+
+function getFolder(){ 
+  return document.getElementById('folderPath').value.trim() || defaultFolder; 
+}
+
+document.getElementById('urlInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addUrl();
+});
+
+// Save Destination input watcher
+document.getElementById('folderPath').addEventListener('change', () => {
+  saveCurrentState();
+});
+
+// ── State Persistence ──────────────────────────────────────────────────
+function saveCurrentState() {
+  fetch('/state', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rows: rows.map(r => {
+      // Don't save transient downloading states
+      const cleanR = { ...r };
+      if (cleanR.dl && cleanR.dl.state === 'downloading') {
+        cleanR.dl = null;
+      }
+      return cleanR;
+    }), folder: getFolder() })
+  }).catch(err => console.error('Failed to save state:', err));
+}
+
+function loadSavedState() {
+  fetch('/state')
+    .then(r => r.json())
+    .then(data => {
+      if (data && Array.isArray(data.rows)) {
+        rows.length = 0;
+        data.rows.forEach(r => {
+          rows.push({
+            url: r.url,
+            title: r.title || '—',
+            stream_url: r.stream_url || null,
+            resolution: r.resolution || null,
+            format: r.format || null,
+            filesize: r.filesize || null,
+            duration: r.duration || null,
+            itag: r.itag || null,
+            status: r.status || 'queued',
+            dl: r.dl || null,
+            error: r.error || null
+          });
+        });
+        if (data.folder) {
+          document.getElementById('folderPath').value = data.folder;
+        }
+        renderTable();
+      }
+    })
+    .catch(err => console.error('Failed to load state:', err));
+}
+
+// ── Poll for URLs sent from Chrome extension ───────────────────────────
+setInterval(async () => {
+  try {
+    const r = await fetch('/pending-urls');
+    const { urls } = await r.json();
+    if (urls && urls.length > 0) {
+      let added = 0;
+      for (const url of urls) {
+        if (!rows.find(r => r.url === url)) {
+          rows.push({ url, title:'—', stream_url:null, resolution:null, format:null,
+                      filesize:null, duration:null, itag:null, status:'queued', dl:null });
+          added++;
+        }
+      }
+      if (added > 0) {
+        renderTable();
+        saveCurrentState();
+        toast(`⚡ ${added} URL${added>1?'s':''} added from Chrome extension!`);
+      }
+    }
+  } catch {}
+}, 1500);
+
+// ── Helpers ────────────────────────────────────────────────────────────
+function isYT(u){return u.includes('youtube.com/watch')||u.includes('youtu.be/');}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function trunc(s,n){return s&&s.length>n?s.slice(0,n)+'…':(s||'');}
+function videoId(url){try{return new URL(url).searchParams.get('v')||url.split('/').pop().split('?')[0];}catch{return '';}}
+
+function toast(msg){
+  const t=document.getElementById('toast');
+  document.getElementById('toastMsg').textContent=msg;
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t=setTimeout(()=>t.classList.remove('show'), 3000);
+}
+
+function resBadgeClass(res){
+  if(!res)return 'r-unknown';
+  const r=res.toLowerCase();
+  if(r.includes('2160')||r.includes('4k'))return 'r-2160p';
+  if(r.includes('1440'))return 'r-1440p';
+  if(r.includes('1080'))return 'r-1080p';
+  if(r.includes('720'))return 'r-720p';
+  if(r.includes('480'))return 'r-480p';
+  if(r.includes('360'))return 'r-360p';
+  if(r.includes('240'))return 'r-240p';
+  if(r.includes('144'))return 'r-144p';
+  if(r.includes('audio'))return 'r-audio';
+  return 'r-unknown';
+}
+
+// ── Add / Remove ───────────────────────────────────────────────────────
+function addUrl(){
+  const inp=document.getElementById('urlInput'),val=inp.value.trim();
+  if(!val||!isYT(val)){
+    inp.classList.add('shake');
+    setTimeout(()=>inp.classList.remove('shake'),350);
+    return;
+  }
+  rows.push({url:val,title:'—',stream_url:null,resolution:null,format:null,
+             filesize:null,duration:null,itag:null,status:'queued',dl:null});
+  inp.value='';
+  renderTable();
+  saveCurrentState();
+}
+
+function removeRow(i){
+  rows.splice(i,1);
+  renderTable();
+  saveCurrentState();
+}
+
+function clearAll(){
+  rows.length=0;
+  renderTable();
+  saveCurrentState();
+}
+
+// ── Render ─────────────────────────────────────────────────────────────
+function renderTable(){
+  const tbody=document.getElementById('tableBody');
+  const hasRows=rows.length>0;
+  const done=rows.filter(r=>r.status==='done').length;
+  const errs=rows.filter(r=>r.status==='error').length;
+
+  document.getElementById('extractBtn').disabled=!hasRows;
+  document.getElementById('clearBtn').disabled=!hasRows;
+  document.getElementById('dlCsvBtn').disabled=done+errs===0;
+  document.getElementById('copyCsvBtn').disabled=done+errs===0;
+
+  const ctr=document.getElementById('counter');
+  ctr.style.display=hasRows?'':'none';
+  ctr.textContent=`${rows.length} URL${rows.length>1?'s':''} · ${done} done${errs?' · '+errs+' err':''}`;
+  document.getElementById('summary').innerHTML=done?`<b>${done}</b> extracted · <b>${errs}</b> errors`:'';
+
+  if(!hasRows){
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="10">
+      <span class="ei">🎬</span><div class="et">No URLs Added Yet</div>
+      <div class="es">Paste a YouTube URL above to begin extraction</div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML=rows.map((r,i)=>{
+    const vid=videoId(r.url);
+    const short=vid?`youtu.be/${vid}`:trunc(r.url.replace(/https?:\/\/(www\.)?/,''),30);
+
+    const resBadge=r.resolution
+      ?`<span class="rb ${resBadgeClass(r.resolution)}">${esc(r.resolution)}</span>`
+      :`<span style="color:var(--text-dark)">—</span>`;
+
+    let streamCell;
+    if(r.stream_url)
+      streamCell=`<span class="stream-txt" title="Click to copy stream URL" onclick="copyStream(${i})">${trunc(r.stream_url,40)}</span>`;
+    else if(r.error)
+      streamCell=`<span class="stream-txt err" title="${esc(r.error)}">${trunc(r.error,36)}</span>`;
+    else
+      streamCell=`<span class="stream-txt empty">—</span>`;
+
+    const statusLabel={queued:'Queued',waiting:'Waiting',active:'Extracting…',done:'Done',error:'Error'};
+    const badge=`<span class="badge ${r.status}"><span class="dot"></span>${statusLabel[r.status]||r.status}</span>`;
+
+    // Download progress block
+    let dlBlock='',openFolderBlock='';
+    if(r.dl){
+      if(r.dl.state==='downloading'||r.dl.state==='done'||r.dl.state==='error'){
+        const pct=r.dl.percent||0;
+        const ind=r.dl.state==='downloading'&&pct<1;
+        let label = '✓ Saved';
+        let barColor = 'var(--green)';
+        if (r.dl.state === 'done') {
+          if (r.dl.exists === false) {
+            label = '✕ Deleted';
+            barColor = 'var(--text-dark)';
+          }
+        } else if (r.dl.state === 'error') {
+          label = '✗ Failed';
+          barColor = 'var(--red)';
+        } else {
+          label = `${pct.toFixed(0)}%`;
+        }
+        dlBlock=`<div class="dl-prog on">
+          <div class="dl-track"><div class="dl-fill ${ind?'ind':''}" style="width:${pct}%; background:${barColor}!important"></div></div>
+          <div class="dl-info">
+            <span class="dl-pct" style="color:${barColor}!important">${label}</span>
+            ${r.dl.speed?`<span class="dl-spd">${r.dl.speed}</span>`:''}
+            ${r.dl.total?`<span class="dl-sz">${r.dl.total}</span>`:''}
+          </div>
+        </div>`;
+      }
+      
+      // Open folder row indicator
+      if(r.dl.state==='done'&&r.dl.destFolder){
+        openFolderBlock=`<div class="open-folder-row on">
+          <span class="saved-path" title="${esc(r.dl.destFile||'')}">${esc(trunc(r.dl.destFile||r.dl.destFolder,32))}</span>
+          <button class="folder-btn icon-only" onclick="openFolder(${i})" ${r.dl.exists===false?'disabled':''} title="Open folder">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+          </button>
+        </div>`;
+      }
+    }
+
+    // Row action buttons
+    let actions;
+    if(r.status==='active'||r.status==='waiting'){
+      actions=`<span style="color:var(--text-dark)">Extracting…</span>`;
+    } else {
+      const isDling=r.dl&&r.dl.state==='downloading';
+      actions=`<div class="act-wrap">
+        <div class="act-row">
+          ${r.stream_url?`
+            <button class="icon-only" onclick="copyStream(${i})" title="Copy stream URL">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            </button>
+            <button class="green-btn icon-only" onclick="startDownload(${i})" ${isDling?'disabled':''} title="Download locally">
+              ${isDling?'⏳':`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>`}
+            </button>
+            <button class="orange-btn icon-only" onclick="openInBrowser(${i})" title="Open stream in tab">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            </button>
+            <button class="folder-btn icon-only" onclick="openFolder(${i})" ${!r.dl||r.dl.state!=='done'||r.dl.exists===false?'disabled':''} title="Show file in Finder/Explorer">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            </button>
+          `:''}
+          <button class="danger icon-only" onclick="removeRow(${i})" title="Remove row">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+        ${dlBlock}
+        ${openFolderBlock}
+      </div>`;
+    }
+
+    const rowCls=r.status==='error'?'row-error':r.status==='active'?'row-active':(r.dl&&r.dl.state==='downloading'?'row-dl':'');
+
+    return `<tr class="${rowCls}" id="row-${i}">
+      <td class="c-num">${i+1}</td>
+      <td class="c-url" title="${esc(r.url)}"><a href="${esc(r.url)}" target="_blank">${esc(short)}</a></td>
+      <td class="c-title ${r.title==='—'?'empty':''}" title="${esc(r.title)}">${esc(trunc(r.title,32))}</td>
+      <td>${resBadge}</td>
+      <td class="c-fmt" title="${esc(r.format||'')}">${esc(trunc(r.format||'—',16))}</td>
+      <td class="c-size">${r.filesize||'—'}</td>
+      <td class="c-dur">${r.duration||'—'}</td>
+      <td class="c-stream">${streamCell}</td>
+      <td>${badge}</td>
+      <td>${actions}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Row actions ────────────────────────────────────────────────────────
+function copyStream(i){
+  if(!rows[i].stream_url)return;
+  navigator.clipboard.writeText(rows[i].stream_url);
+  toast('Stream URL copied to clipboard!');
+}
+
+function openInBrowser(i){
+  if(rows[i].stream_url) window.open(rows[i].stream_url,'_blank');
+}
+
+function openFolder(i){
+  const r=rows[i];
+  if(!r.dl||!r.dl.destFolder)return;
+  fetch('/open-folder',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({folder:r.dl.destFolder})})
+    .then(res=>res.json())
+    .then(d=>{ if(!d.ok) toast('Could not open folder: '+d.error); });
+}
+
+// ── Download with SSE progress ─────────────────────────────────────────
+function startDownload(i, customFolder){
+  const r=rows[i];
+  if(!r.url)return;
+  r.dl={percent:0,speed:null,total:null,state:'downloading',destFolder:null,destFile:null};
+  renderTable();
+
+  const ytUrl =encodeURIComponent(r.url);
+  const title =encodeURIComponent(r.title&&r.title!=='—'?r.title:'video');
+  const folder=encodeURIComponent(customFolder || getFolder());
+  const es=new EventSource(`/download-progress?url=${ytUrl}&title=${title}&folder=${folder}`);
+
+  es.onmessage=(e)=>{
+    const msg=JSON.parse(e.data);
+    if(msg.type==='start'){
+      rows[i].dl={percent:0,speed:null,total:null,state:'downloading',
+                  filename:msg.filename,destFolder:msg.destFolder,destFile:msg.destFile};
+      renderTable();
+    } else if(msg.type==='progress'){
+      rows[i].dl.percent=msg.percent;
+      rows[i].dl.speed=msg.speed;
+      rows[i].dl.total=msg.total;
+      renderTable();
+    } else if(msg.type==='done'){
+      es.close();
+      rows[i].dl.state='done';
+      rows[i].dl.percent=100;
+      rows[i].dl.destFolder=msg.destFolder;
+      rows[i].dl.destFile=msg.destFile;
+      renderTable();
+      saveCurrentState();
+      toast(`✅ Saved to folder!`);
+    } else if(msg.type==='error'){
+      es.close();
+      rows[i].dl.state='error';
+      renderTable();
+      toast(`❌ Download failed: ${msg.message}`);
+    }
+  };
+  
+  es.onerror=()=>{
+    es.close();
+    if(rows[i].dl&&rows[i].dl.state==='downloading'){
+      rows[i].dl.state='error';
+      renderTable();
+    }
+  };
+}
+
+// ── Extraction ─────────────────────────────────────────────────────────
+async function startExtraction(){
+  if(!rows.length)return;
+  rows.forEach(r=>{
+    r.status='waiting';
+    r.stream_url=null;
+    r.error=null;
+    r.title='—';
+    r.resolution=null;
+    r.format=null;
+    r.filesize=null;
+    r.duration=null;
+    r.itag=null;
+    r.dl=null;
+  });
+  renderTable();
+
+  const prog=document.getElementById('extractProgress');
+  const fill=document.getElementById('epFill'),lbl=document.getElementById('epLabel');
+  prog.style.display='block';
+  fill.style.width='0%';
+  document.getElementById('extractBtn').disabled=true;
+  document.getElementById('clearBtn').disabled=true;
+  rows[0].status='active';
+  renderTable();
+
+  const resp=await fetch('/extract',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({urls:rows.map(r=>r.url)})
+  });
+
+  const reader=resp.body.getReader(),decoder=new TextDecoder();
+  let buf='',n=0;
+  
+  while(true){
+    const {value,done} = await reader.read();
+    if(done) break;
+    buf+=decoder.decode(value,{stream:true});
+    const lines=buf.split('\n');
+    buf=lines.pop();
+    for(const line of lines){
+      if(!line.trim())continue;
+      try{
+        const result=JSON.parse(line),idx=n++;
+        Object.assign(rows[idx],{
+          stream_url:result.stream_url||null,
+          title:result.title||'—',
+          resolution:result.resolution||null,
+          format:result.format||null,
+          filesize:result.filesize||null,
+          duration:result.duration||null,
+          itag:result.itag||null,
+          error:result.error||null,
+          status:result.error?'error':'done'
+        });
+        if(idx+1 < rows.length) rows[idx+1].status='active';
+        fill.style.width=`${(n/rows.length)*100}%`;
+        lbl.textContent=`Extracted ${n} / ${rows.length} videos…`;
+        renderTable();
+      }catch(e){}
+    }
+  }
+  
+  document.getElementById('extractBtn').disabled=false;
+  document.getElementById('clearBtn').disabled=false;
+  fill.style.width='100%';
+  lbl.textContent=`✓ Completed — ${rows.filter(r=>r.status==='done').length} of ${rows.length} extracted`;
+  setTimeout(()=>{ prog.style.display='none'; }, 2000);
+  renderTable();
+  saveCurrentState();
+}
+
+// ── File Existence Checker ─────────────────────────────────────────────
+async function checkFilesExist() {
+  const doneRows = rows.map((r, i) => ({ r, i })).filter(item => item.r.dl && item.r.dl.state === 'done');
+  if (!doneRows.length) return;
+
+  const paths = [];
+  const rowMapping = [];
+
+  for (const item of doneRows) {
+    if (item.r.dl.parts && item.r.dl.parts.length > 0) {
+      item.r.dl.parts.forEach(part => {
+        paths.push(part.destFile);
+        rowMapping.push({ index: item.i });
+      });
+    } else if (item.r.dl.destFile) {
+      paths.push(item.r.dl.destFile);
+      rowMapping.push({ index: item.i });
+    }
+  }
+
+  if (!paths.length) return;
+
+  try {
+    const resp = await fetch('/check-exists', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paths })
+    });
+    const { results } = await resp.json();
+
+    const rowStatus = {};
+    for (let idx = 0; idx < results.length; idx++) {
+      const exists = results[idx];
+      const mapping = rowMapping[idx];
+      if (rowStatus[mapping.index] === undefined) {
+        rowStatus[mapping.index] = true;
+      }
+      if (!exists) {
+        rowStatus[mapping.index] = false;
+      }
+    }
+
+    let changed = false;
+    for (const rowIndex in rowStatus) {
+      const exists = rowStatus[rowIndex];
+      const r = rows[rowIndex];
+      if (r && r.dl) {
+        const currentExists = r.dl.exists !== false;
+        if (currentExists !== exists) {
+          r.dl.exists = exists;
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) {
+      renderTable();
+    }
+  } catch (err) {
+    console.error('Failed to check file existence:', err);
+  }
+}
+
+// Check local files status every 4 seconds
+setInterval(checkFilesExist, 4000);
+
+// ── CSV ────────────────────────────────────────────────────────────────
+function buildCsv(){
+  const h='youtube_url,title,resolution,format,filesize,duration,stream_url,status';
+  const d=rows.filter(r=>r.status==='done'||r.status==='error').map(r=>[
+    `"${r.url}"`,`"${(r.title||'').replace(/"/g,"'")}"`,
+    `"${r.resolution||''}"`,`"${r.format||''}"`,
+    `"${r.filesize||''}"`,`"${r.duration||''}"`,
+    `"${r.stream_url||('ERROR: '+(r.error||'').replace(/"/g,"'"))}"`,
+    `"${r.status}"`.join(',')]);
+  return [h,...d].join('\n');
+}
+
+function downloadCsv(){
+  const blob=new Blob([buildCsv()],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`stream_urls_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  toast('CSV file downloaded!');
+}
+
+function copyCsv(){
+  navigator.clipboard.writeText(buildCsv());
+  toast('CSV copied to clipboard!');
+}
+</script>
+</body>
+</html>

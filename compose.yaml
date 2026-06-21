@@ -1,0 +1,14 @@
+name: ytv-downloader
+
+services:
+  downloader:
+    build: .
+    container_name: ytv-downloader
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ~/Downloads:/app/downloads
+    environment:
+      - NODE_ENV=production
+      - PORT=3000

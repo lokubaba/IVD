@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --accent:#2563eb;--accent-bg:#eff4ff;--accent-lt:#dbeafe;
+    --green:#16a34a;--green-bg:#f0fdf4;--green-bd:#bbf7d0;
+    --red:#dc2626;--red-bg:#fef2f2;--red-bd:#fecaca;
+    --amber:#d97706;--amber-bg:#fffbeb;
+    --border:#e2e4e9;--border2:#cdd0d8;
+    --bg:#f4f5f7;--surface:#fff;--surface2:#f0f1f4;
+    --text:#1a1d23;--muted:#9198a8;--muted2:#6b7280;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    --mono:'JetBrains Mono','Fira Code','Courier New',monospace;
+  }
+
+  body{
+    font-family:var(--sans);font-size:13px;color:var(--text);
+    background:var(--bg);width:320px;min-height:160px;
+  }
+
+  /* Header */
+  .header{
+    display:flex;align-items:center;gap:9px;
+    padding:12px 14px;background:var(--surface);
+    border-bottom:1px solid var(--border);
+  }
+  .logo{
+    width:28px;height:28px;background:var(--accent);border-radius:6px;
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:11px;font-weight:700;font-family:var(--mono);flex-shrink:0;
+  }
+  .header-text{flex:1;min-width:0}
+  .header-title{font-size:13px;font-weight:700;color:var(--text);letter-spacing:-.01em}
+  .header-sub{font-size:10px;color:var(--muted);margin-top:1px}
+  .server-dot{
+    width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;
+    transition:background .3s;
+  }
+  .server-dot.online{background:var(--green)}
+  .server-dot.offline{background:var(--red)}
+
+  /* Content */
+  .body{padding:14px}
+
+  /* Video card */
+  .video-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:8px;
+    padding:10px 12px;margin-bottom:12px;display:flex;gap:10px;align-items:flex-start;
+  }
+  .thumb{
+    width:72px;height:40px;border-radius:4px;object-fit:cover;
+    background:var(--surface2);flex-shrink:0;
+  }
+  .thumb-placeholder{
+    width:72px;height:40px;border-radius:4px;background:var(--surface2);
+    flex-shrink:0;display:flex;align-items:center;justify-content:center;
+    font-size:18px;
+  }
+  .video-info{flex:1;min-width:0}
+  .video-title{
+    font-size:11px;font-weight:600;color:var(--text);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    margin-bottom:3px;
+  }
+  .video-url{
+    font-size:10px;color:var(--muted2);font-family:var(--mono);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+
+  /* States */
+  .state{
+    display:none;text-align:center;padding:8px 0 4px;
+  }
+  .state.visible{display:block}
+
+  .state-icon{font-size:24px;margin-bottom:6px}
+  .state-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px}
+  .state-sub{font-size:11px;color:var(--muted2);line-height:1.5}
+
+  /* not-youtube state */
+  #state-noyt .state-icon::after{content:'🎬'}
+  #state-noyt .state-title{color:var(--muted2)}
+
+  /* server offline state */
+  #state-offline .state-icon::after{content:'🔌'}
+  #state-offline .state-title{color:var(--red)}
+
+  /* sent state */
+  #state-sent .state-icon::after{content:'✅'}
+  #state-sent .state-title{color:var(--green)}
+
+  /* Buttons */
+  .btn{
+    width:100%;padding:9px;border-radius:7px;border:none;cursor:pointer;
+    font-family:var(--sans);font-size:13px;font-weight:600;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    transition:all .15s;
+  }
+  .btn-send{background:var(--accent);color:#fff}
+  .btn-send:hover{background:#1d4ed8}
+  .btn-send:active{transform:scale(.98);opacity:.9}
+  .btn-send:disabled{opacity:.4;cursor:not-allowed;transform:none}
+  .btn-open{
+    background:var(--surface);color:var(--accent);
+    border:1px solid var(--accent-lt);margin-top:8px;
+    font-weight:500;font-size:12px;
+  }
+  .btn-open:hover{background:var(--accent-bg)}
+
+  /* Server offline helper */
+  .offline-hint{
+    background:var(--red-bg);border:1px solid var(--red-bd);border-radius:6px;
+    padding:8px 10px;font-size:11px;color:var(--red);margin-bottom:12px;line-height:1.5;
+  }
+  .offline-hint code{
+    background:rgba(220,38,38,.1);padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:10px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">yt</div>
+  <div class="header-text">
+    <div class="header-title">yt-stream extractor</div>
+    <div class="header-sub" id="serverStatus">Checking server…</div>
+  </div>
+  <div class="server-dot" id="serverDot"></div>
+</div>
+
+<div class="body">
+
+  <!-- Not on YouTube -->
+  <div class="state" id="state-noyt">
+    <div class="state-icon"></div>
+    <div class="state-title">Not a YouTube video</div>
+    <div class="state-sub">Navigate to a YouTube video page,<br/>then click this extension.</div>
+  </div>
+
+  <!-- Server offline -->
+  <div class="state" id="state-offline">
+    <div class="offline-hint">
+      The extractor app isn't running.<br/>
+      Double-click <code>START.command</code> to start it, then try again.
+    </div>
+    <div class="state-icon"></div>
+    <div class="state-title">App not running</div>
+    <div class="state-sub">Start the app first, then come back here.</div>
+  </div>
+
+  <!-- Ready to send -->
+  <div id="panel-ready" style="display:none">
+    <div class="video-card" id="videoCard">
+      <div class="thumb-placeholder" id="thumbWrap">🎬</div>
+      <div class="video-info">
+        <div class="video-title" id="videoTitle">Loading…</div>
+        <div class="video-url" id="videoUrlShort"></div>
+      </div>
+    </div>
+    <button class="btn btn-send" id="sendBtn" onclick="sendToExtractor()">
+      ⚡ Send to Extractor
+    </button>
+    <button class="btn btn-open" onclick="openApp()">
+      Open Extractor App ↗
+    </button>
+  </div>
+
+  <!-- Sent confirmation -->
+  <div class="state" id="state-sent">
+    <div class="state-icon"></div>
+    <div class="state-title">Sent!</div>
+    <div class="state-sub" id="sentMsg">URL added to the extractor.<br/>Switch to the app to extract &amp; download.</div>
+    <button class="btn btn-open" style="margin-top:12px" onclick="openApp()">
+      Open Extractor App ↗
+    </button>
+  </div>
+
+</div>
+
+<script src="popup.js"></script>
+</body>
+</html>
