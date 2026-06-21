@@ -1,8 +1,30 @@
-const APP_URL = 'http://localhost:3000';
+let APP_URL = 'http://localhost:3000';
 
 let currentTab  = null;
 let currentUrl  = null;
 let serverOnline = false;
+
+// ── Auto-discovery scanning ──
+async function discoverServer() {
+  const ports = [3000, 3001, 3002, 3003, 3004, 3005];
+  for (const port of ports) {
+    const url = `http://localhost:${port}`;
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 800);
+      const r = await fetch(`${url}/check`, { signal: controller.signal });
+      clearTimeout(timer);
+      if (r.ok) {
+        const data = await r.json();
+        if (data.installed) {
+          APP_URL = url;
+          return true;
+        }
+      }
+    } catch (e) {}
+  }
+  return false;
+}
 
 // ── Boot ──────────────────────────────────────────────────────────────
 (async () => {
@@ -14,8 +36,11 @@ let serverOnline = false;
     tab.url.includes('youtu.be/')
   );
 
-  // Check server
+  // Check server (try default 3000 first, fallback to scanner)
   serverOnline = await checkServer();
+  if (!serverOnline) {
+    serverOnline = await discoverServer();
+  }
   updateServerIndicator(serverOnline);
 
   if (!isYT) {

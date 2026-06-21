@@ -101,6 +101,7 @@ EOF
 fi
 
 # 5. Check if already running on port 3000
+CHOSEN_PORT=3000
 if lsof -i :3000 &>/dev/null; then
     # Verify if it's YTV_Downloader
     RESPONSE=$(curl -s --max-time 2 http://localhost:3000/check)
@@ -112,15 +113,18 @@ if lsof -i :3000 &>/dev/null; then
         exit 0
     else
         echo "⚠️ Warning: Port 3000 is in use by another application!"
-        echo "YTV_Downloader cannot start on port 3000."
-        echo "Please close the other application or edit the PORT configuration."
-        echo "Press any key to exit..."
-        read -n 1
-        exit 1
+        read -p "Enter an alternative port to run YTV_Downloader (3001-3005) [default: 3001]: " CHOSEN_PORT
+        CHOSEN_PORT=${CHOSEN_PORT:-3001}
+        
+        # Verify if the chosen port is also occupied
+        if lsof -i :$CHOSEN_PORT &>/dev/null; then
+            echo "ERROR: Port $CHOSEN_PORT is also occupied. Exiting."
+            exit 1
+        fi
     fi
 fi
 
 # 6. Launch server
-echo "🚀 Launching YTV_Downloader server..."
-open "http://localhost:3000"
-npm start
+echo "🚀 Launching YTV_Downloader server on port $CHOSEN_PORT..."
+open "http://localhost:$CHOSEN_PORT"
+PORT=$CHOSEN_PORT npm start

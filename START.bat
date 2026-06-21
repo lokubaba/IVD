@@ -78,6 +78,7 @@ if not exist "%STARTUP_LNK%" (
 )
 
 :: 5. Check if already running on port 3000
+set CHOSEN_PORT=3000
 netstat -ano | findstr :3000 >nul 2>nul
 if %errorlevel% eq 0 (
     :: Verify if it's YTV_Downloader using PowerShell curl
@@ -90,15 +91,24 @@ if %errorlevel% eq 0 (
         exit /b 0
     ) else (
         echo ⚠️ Warning: Port 3000 is in use by another application!
-        echo YTV_Downloader cannot start on port 3000.
-        echo Please close the other application or edit the PORT configuration.
-        pause
-        exit /b 1
+        set /p CHOSEN_PORT="Enter an alternative port to run YTV_Downloader (3001-3005) [default: 3001]: "
+        if "!CHOSEN_PORT!"=="" (
+            set CHOSEN_PORT=3001
+        )
+        
+        :: Verify if chosen port is also occupied
+        netstat -ano | findstr :!CHOSEN_PORT! >nul 2>nul
+        if !errorlevel! eq 0 (
+            echo ERROR: Port !CHOSEN_PORT! is also occupied. Exiting.
+            pause
+            exit /b 1
+        )
     )
 )
 
 :: 6. Launch server
-echo 🚀 Launching YTV_Downloader server...
-start http://localhost:3000
+echo 🚀 Launching YTV_Downloader server on port %CHOSEN_PORT%...
+start http://localhost:%CHOSEN_PORT%
+set PORT=%CHOSEN_PORT%
 call npm start
 pause
