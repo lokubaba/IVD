@@ -3,9 +3,11 @@ const { exec, spawn } = require('child_process');
 const path     = require('path');
 const fs       = require('fs');
 const os       = require('os');
+const http     = require('http');
+const https    = require('https');
 
 const app  = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 if (!fs.existsSync(PUBLIC_DIR)) {
@@ -88,6 +90,28 @@ function durationFromUrl(url) {
     return h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
   } catch { return null; }
 }
+
+function getRemoteFileSize(url) {
+  return new Promise((resolve) => {
+    if (!url || !url.startsWith('http')) return resolve(null);
+    try {
+      const client = url.startsWith('https') ? https : http;
+      const req = client.request(url, { method: 'HEAD', timeout: 5000 }, (res) => {
+        const len = res.headers['content-length'];
+        resolve(len ? parseInt(len, 10) : null);
+      });
+      req.on('error', () => resolve(null));
+      req.setTimeout(5000, () => {
+        req.destroy();
+        resolve(null);
+      });
+      req.end();
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
 
 function getSetting(key, fallbackEnvKey) {
   const settingsPath = path.resolve(__dirname, 'settings.json');
@@ -172,7 +196,66 @@ function getYtDlpCookiesArgs() {
   return [];
 }
 
-function getStreamInfo(youtubeUrl) {
+function isDirectVideoStream(url) {
+  try {
+    const u = new URL(url);
+    const pathname = u.pathname.toLowerCase();
+    
+    // Check extension
+    if (pathname.endsWith('.mp4') || pathname.endsWith('.webm') || pathname.endsWith('.mkv') || pathname.endsWith('.m3u8') || pathname.endsWith('.mov')) {
+      return true;
+    }
+    
+    // Check if it's NOT a standard platform page
+    const host = u.hostname.toLowerCase();
+    const isPlatform = host.includes('youtube.com') || host.includes('youtu.be') ||
+                       host.includes('instagram.com') || host.includes('facebook.com') || host.includes('fb.watch') ||
+                       host.includes('linkedin.com') || host.includes('twitter.com') || host.includes('x.com') ||
+                       host.includes('tiktok.com') || host.includes('vimeo.com');
+                       
+    // If it is not a platform page, and it's sent to us, it's highly likely to be a direct video stream URL
+    if (!isPlatform) {
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
+async function getStreamInfo(youtubeUrl) {
+  // If it's already a direct video stream URL, bypass yt-dlp completely
+  if (isDirectVideoStream(youtubeUrl)) {
+    const probedSize = await getRemoteFileSize(youtubeUrl);
+    let filesize = 'unknown';
+    if (probedSize) {
+      if (probedSize > 1e9) filesize = (probedSize/1e9).toFixed(2)+' GB';
+      else if (probedSize > 1e6) filesize = (probedSize/1e6).toFixed(1)+' MB';
+      else filesize = (probedSize/1e3).toFixed(0)+' KB';
+    }
+    
+    let title = urlTitles.get(youtubeUrl) || 'Direct Video Stream';
+    if (title === 'Direct Video Stream') {
+      try {
+        const parts = new URL(youtubeUrl).pathname.split('/');
+        const last = parts[parts.length - 1];
+        if (last && last.includes('.')) {
+          title = decodeURIComponent(last);
+        }
+      } catch {}
+    }
+    
+    return {
+      url: youtubeUrl,
+      stream_url: youtubeUrl,
+      title: title,
+      resolution: 'unknown',
+      filesize: filesize,
+      duration: 'unknown',
+      format: youtubeUrl.toLowerCase().endsWith('.webm') ? 'WEBM' : 'MP4',
+      itag: null,
+      error: null
+    };
+  }
+
   const cookieArgs = getYtDlpCookiesArgs();
   let cookieStr = "";
   if (cookieArgs.length === 2) {
@@ -188,7 +271,7 @@ function getStreamInfo(youtubeUrl) {
     exec(
       cmd,
       { timeout: 60000 },
-      (error, stdout, stderr) => {
+      async (error, stdout, stderr) => {
         if (error) {
           resolve({ url:youtubeUrl, stream_url:null, title:null, resolution:null,
                     filesize:null, duration:null, format:null, itag:null,
@@ -210,6 +293,14 @@ function getStreamInfo(youtubeUrl) {
           if (clen > 1e9) filesize = (clen/1e9).toFixed(2)+' GB';
           else if (clen > 1e6) filesize = (clen/1e6).toFixed(1)+' MB';
           else filesize = (clen/1e3).toFixed(0)+' KB';
+        } else if (streamUrl && streamUrl.startsWith('http')) {
+          // Probe remote file size
+          const probedSize = await getRemoteFileSize(streamUrl);
+          if (probedSize) {
+            if (probedSize > 1e9) filesize = (probedSize/1e9).toFixed(2)+' GB';
+            else if (probedSize > 1e6) filesize = (probedSize/1e6).toFixed(1)+' MB';
+            else filesize = (probedSize/1e3).toFixed(0)+' KB';
+          }
         }
 
         // Convert duration to MM:SS or HH:MM:SS
@@ -460,15 +551,20 @@ app.post('/open-folder', (req, res) => {
   });
 });
 
+const urlTitles = new Map();
+
 // ── Add URL from Chrome extension ────────────────────────────────────────
 app.post('/add-url', (req, res) => {
-  const { url } = req.body;
+  const { url, title } = req.body;
   if (!url || !url.startsWith('http')) {
     return res.status(400).json({ error: 'Invalid URL' });
   }
+  if (title) {
+    urlTitles.set(url, title);
+  }
   // Store pending URLs in memory so the UI can pick them up via polling
-  pendingUrls.push(url);
-  console.log(`  🔗  Extension sent URL: ${url}`);
+  pendingUrls.push({ url, title: title || '' });
+  console.log(`  🔗  Extension sent URL: ${url}${title ? ` (Title: ${title})` : ''}`);
   res.json({ ok: true, url });
 });
 
@@ -482,7 +578,7 @@ app.get('/pending-urls', (req, res) => {
 // ── Check yt-dlp ─────────────────────────────────────────────────────────
 app.get('/check', (req, res) => {
   exec('yt-dlp --version', (err, stdout) => {
-    res.json(err ? { installed:false } : { installed:true, version:stdout.trim() });
+    res.json(err ? { installed:false } : { installed:true, version:stdout.trim(), vex:true });
   });
 });
 

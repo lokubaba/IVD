@@ -77,23 +77,23 @@ if not exist "%STARTUP_LNK%" (
     )
 )
 
-:: 5. Check if already running on port 3000
-set CHOSEN_PORT=3000
-netstat -ano | findstr :3000 >nul 2>nul
+:: 5. Check if already running on port 3001
+set CHOSEN_PORT=3001
+netstat -ano | findstr :3001 >nul 2>nul
 if %errorlevel% eq 0 (
     :: Verify if it's YTV_Downloader using PowerShell curl
-    powershell -Command "$resp = Invoke-RestMethod -Uri 'http://localhost:3000/check' -TimeoutSec 2 -ErrorAction SilentlyContinue; if ($resp -and $resp.installed -ne $null) { exit 0 } else { exit 1 }"
+    powershell -Command "$resp = Invoke-RestMethod -Uri 'http://localhost:3001/check' -TimeoutSec 2 -ErrorAction SilentlyContinue; if ($resp -and $resp.installed -ne $null) { exit 0 } else { exit 1 }"
     if !errorlevel! eq 0 (
-        echo 🚀 YTV_Downloader is already running on port 3000!
-        echo Opening web interface at http://localhost:3000...
-        start http://localhost:3000
+        echo 🚀 YTV_Downloader is already running on port 3001!
+        echo Opening web interface at http://localhost:3001...
+        start http://localhost:3001
         timeout /t 3 >nul
         exit /b 0
     ) else (
-        echo ⚠️ Warning: Port 3000 is in use by another application!
-        set /p CHOSEN_PORT="Enter an alternative port to run YTV_Downloader (3001-3005) [default: 3001]: "
+        echo ⚠️ Warning: Port 3001 is in use by another application!
+        set /p CHOSEN_PORT="Enter an alternative port to run YTV_Downloader (3002-3005) [default: 3002]: "
         if "!CHOSEN_PORT!"=="" (
-            set CHOSEN_PORT=3001
+            set CHOSEN_PORT=3002
         )
         
         :: Verify if chosen port is also occupied

@@ -900,14 +900,6 @@ tbody td {
 
     <!-- Bottom panel -->
     <div class="bottom-bar">
-      <button id="dlCsvBtn" disabled onclick="downloadCsv()">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4</path><polyline points="7 10 12 15 17 10</polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-        Download CSV
-      </button>
-      <button id="copyCsvBtn" disabled onclick="copyCsv()">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-        Copy CSV
-      </button>
       <span class="spacer"></span>
       <span class="summary" id="summary"></span>
     </div>
@@ -1019,9 +1011,11 @@ setInterval(async () => {
     const { urls } = await r.json();
     if (urls && urls.length > 0) {
       let added = 0;
-      for (const url of urls) {
-        if (!rows.find(r => r.url === url)) {
-          rows.push({ url, title:'—', stream_url:null, resolution:null, format:null,
+      for (const item of urls) {
+        const u = typeof item === 'string' ? item : (item && item.url);
+        const t = (typeof item === 'object' && item && item.title) ? item.title : '—';
+        if (u && !rows.find(r => r.url === u)) {
+          rows.push({ url: u, title: t, stream_url:null, resolution:null, format:null,
                       filesize:null, duration:null, itag:null, status:'queued', dl:null });
           added++;
         }
@@ -1030,6 +1024,12 @@ setInterval(async () => {
         renderTable();
         saveCurrentState();
         toast(`⚡ ${added} URL${added>1?'s':''} added from Chrome extension!`);
+        
+        // Auto-start extraction if not already extracting
+        const isExtracting = rows.some(r => r.status === 'active' || r.status === 'waiting');
+        if (!isExtracting) {
+          startExtraction();
+        }
       }
     }
   } catch {}
@@ -1040,6 +1040,29 @@ function isYT(u){return u.includes('youtube.com/watch')||u.includes('youtu.be/')
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function trunc(s,n){return s&&s.length>n?s.slice(0,n)+'…':(s||'');}
 function videoId(url){try{return new URL(url).searchParams.get('v')||url.split('/').pop().split('?')[0];}catch{return '';}}
+
+function getUrlDisplayName(url) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    if (host.includes('youtube.com') || host.includes('youtu.be')) {
+      const vid = videoId(url);
+      return vid ? `youtu.be/${vid}` : 'youtube.com';
+    }
+    if (host.includes('linkedin.com') || host.includes('licdn.com')) {
+      return 'linkedin.com/...';
+    }
+    if (host.includes('instagram.com') || host.includes('cdninstagram.com')) {
+      return 'instagram.com/...';
+    }
+    if (host.includes('facebook.com') || host.includes('fbcdn.net')) {
+      return 'facebook.com/...';
+    }
+    return trunc(url.replace(/https?:\/\/(www\.)?/,''), 30);
+  } catch {
+    return trunc(url, 30);
+  }
+}
 
 function toast(msg){
   const t=document.getElementById('toast');
@@ -1067,7 +1090,7 @@ function resBadgeClass(res){
 // ── Add / Remove ───────────────────────────────────────────────────────
 function addUrl(){
   const inp=document.getElementById('urlInput'),val=inp.value.trim();
-  if(!val||!isYT(val)){
+  if(!val||!val.startsWith('http')){
     inp.classList.add('shake');
     setTimeout(()=>inp.classList.remove('shake'),350);
     return;
@@ -1100,8 +1123,6 @@ function renderTable(){
 
   document.getElementById('extractBtn').disabled=!hasRows;
   document.getElementById('clearBtn').disabled=!hasRows;
-  document.getElementById('dlCsvBtn').disabled=done+errs===0;
-  document.getElementById('copyCsvBtn').disabled=done+errs===0;
 
   const ctr=document.getElementById('counter');
   ctr.style.display=hasRows?'':'none';
@@ -1116,8 +1137,7 @@ function renderTable(){
   }
 
   tbody.innerHTML=rows.map((r,i)=>{
-    const vid=videoId(r.url);
-    const short=vid?`youtu.be/${vid}`:trunc(r.url.replace(/https?:\/\/(www\.)?/,''),30);
+    const short=getUrlDisplayName(r.url);
 
     const resBadge=r.resolution
       ?`<span class="rb ${resBadgeClass(r.resolution)}">${esc(r.resolution)}</span>`
@@ -1160,16 +1180,6 @@ function renderTable(){
             ${r.dl.speed?`<span class="dl-spd">${r.dl.speed}</span>`:''}
             ${r.dl.total?`<span class="dl-sz">${r.dl.total}</span>`:''}
           </div>
-        </div>`;
-      }
-      
-      // Open folder row indicator
-      if(r.dl.state==='done'&&r.dl.destFolder){
-        openFolderBlock=`<div class="open-folder-row on">
-          <span class="saved-path" title="${esc(r.dl.destFile||'')}">${esc(trunc(r.dl.destFile||r.dl.destFolder,32))}</span>
-          <button class="folder-btn icon-only" onclick="openFolder(${i})" ${r.dl.exists===false?'disabled':''} title="Open folder">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-          </button>
         </div>`;
       }
     }
@@ -1293,12 +1303,17 @@ function startDownload(i, customFolder){
 
 // ── Extraction ─────────────────────────────────────────────────────────
 async function startExtraction(){
-  if(!rows.length)return;
-  rows.forEach(r=>{
+  // Only extract rows that are queued, waiting, or failed
+  const targets = rows.filter(r => r.status === 'queued' || r.status === 'waiting' || r.status === 'error');
+  if(!targets.length)return;
+
+  targets.forEach(r=>{
     r.status='waiting';
     r.stream_url=null;
     r.error=null;
-    r.title='—';
+    if (!r.title || r.title === '—') {
+      r.title='—';
+    }
     r.resolution=null;
     r.format=null;
     r.filesize=null;
@@ -1314,13 +1329,15 @@ async function startExtraction(){
   fill.style.width='0%';
   document.getElementById('extractBtn').disabled=true;
   document.getElementById('clearBtn').disabled=true;
-  rows[0].status='active';
+  
+  // Set first target to active
+  targets[0].status='active';
   renderTable();
 
   const resp=await fetch('/extract',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({urls:rows.map(r=>r.url)})
+    body:JSON.stringify({urls:targets.map(r=>r.url)})
   });
 
   const reader=resp.body.getReader(),decoder=new TextDecoder();
@@ -1335,21 +1352,28 @@ async function startExtraction(){
     for(const line of lines){
       if(!line.trim())continue;
       try{
-        const result=JSON.parse(line),idx=n++;
-        Object.assign(rows[idx],{
-          stream_url:result.stream_url||null,
-          title:result.title||'—',
-          resolution:result.resolution||null,
-          format:result.format||null,
-          filesize:result.filesize||null,
-          duration:result.duration||null,
-          itag:result.itag||null,
-          error:result.error||null,
-          status:result.error?'error':'done'
-        });
-        if(idx+1 < rows.length) rows[idx+1].status='active';
-        fill.style.width=`${(n/rows.length)*100}%`;
-        lbl.textContent=`Extracted ${n} / ${rows.length} videos…`;
+        const result=JSON.parse(line);
+        const row = rows.find(r => r.url === result.url);
+        if (row) {
+          Object.assign(row,{
+            stream_url:result.stream_url||null,
+            title:result.title||'—',
+            resolution:result.resolution||null,
+            format:result.format||null,
+            filesize:result.filesize||null,
+            duration:result.duration||null,
+            itag:result.itag||null,
+            error:result.error||null,
+            status:result.error?'error':'done'
+          });
+        }
+        n++;
+        // Find next target row and set to active
+        const nextTarget = targets.find(r => r.status === 'waiting');
+        if (nextTarget) nextTarget.status = 'active';
+        
+        fill.style.width=`${(n/targets.length)*100}%`;
+        lbl.textContent=`Extracted ${n} / ${targets.length} videos…`;
         renderTable();
       }catch(e){}
     }
@@ -1358,10 +1382,16 @@ async function startExtraction(){
   document.getElementById('extractBtn').disabled=false;
   document.getElementById('clearBtn').disabled=false;
   fill.style.width='100%';
-  lbl.textContent=`✓ Completed — ${rows.filter(r=>r.status==='done').length} of ${rows.length} extracted`;
+  lbl.textContent=`✓ Completed — ${targets.filter(r=>r.status==='done').length} of ${targets.length} extracted`;
   setTimeout(()=>{ prog.style.display='none'; }, 2000);
   renderTable();
   saveCurrentState();
+
+  // After completion, check if there are any new queued rows that were added during extraction
+  const hasQueued = rows.some(r => r.status === 'queued');
+  if (hasQueued) {
+    startExtraction();
+  }
 }
 
 // ── File Existence Checker ─────────────────────────────────────────────

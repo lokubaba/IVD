@@ -1,12 +1,15 @@
-let APP_URL = 'http://localhost:3000';
+let APP_URL = 'http://localhost:3001';
 
 let currentTab  = null;
 let currentUrl  = null;
 let serverOnline = false;
+const metadataCache = {};
+let detectedVideosGlobal = [];
 
 // ── Auto-discovery scanning ──
 async function discoverServer() {
   const ports = [3000, 3001, 3002, 3003, 3004, 3005];
+  let foundUrl = null;
   for (const port of ports) {
     const url = `http://localhost:${port}`;
     try {
@@ -17,46 +20,100 @@ async function discoverServer() {
       if (r.ok) {
         const data = await r.json();
         if (data.installed) {
-          APP_URL = url;
-          return true;
+          // Prioritize the server running the new VEX code
+          if (data.vex) {
+            APP_URL = url;
+            if (chrome.storage && chrome.storage.local) {
+              chrome.storage.local.set({ APP_URL });
+            }
+            return true;
+          }
+          if (!foundUrl) {
+            foundUrl = url;
+          }
         }
       }
     } catch (e) {}
   }
+  if (foundUrl) {
+    APP_URL = foundUrl;
+    if (chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ APP_URL });
+    }
+    return true;
+  }
+  return false;
+}
+
+async function isVexServer(url) {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1500);
+    const r = await fetch(`${url}/check`, { signal: controller.signal });
+    clearTimeout(timer);
+    if (r.ok) {
+      const data = await r.json();
+      return !!data.vex;
+    }
+  } catch {}
   return false;
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────
 (async () => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  currentTab = tab;
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    currentTab = tab;
 
-  // Check server (try default 3000 first, fallback to scanner)
-  serverOnline = await checkServer();
-  if (!serverOnline) {
-    serverOnline = await discoverServer();
-  }
-  updateServerIndicator(serverOnline);
+    // Retrieve APP_URL from local storage if available
+    if (chrome.storage && chrome.storage.local) {
+      const stored = await chrome.storage.local.get('APP_URL');
+      if (stored && stored.APP_URL) {
+        APP_URL = stored.APP_URL;
+      }
+    }
 
-  if (!serverOnline) {
+    // Check server: verify if the current APP_URL is online and runs VEX
+    serverOnline = await checkServer();
+    const isVex = serverOnline && (await isVexServer(APP_URL));
+
+    if (!isVex) {
+      // Scan all ports to find a VEX server
+      const foundVex = await discoverServer();
+      if (foundVex) {
+        serverOnline = true;
+      } else if (!serverOnline) {
+        serverOnline = false;
+      }
+    }
+    
+    updateServerIndicator(serverOnline);
+
+    if (!serverOnline) {
+      show('state-offline');
+      return;
+    }
+
+    if (!tab || !tab.url || !tab.url.startsWith('http')) {
+      showNoVideoPanel('Invalid page', 'This page does not support video extraction.');
+      return;
+    }
+
+    // Scan for videos on the page
+    detectedVideosGlobal = await detectVideosInTab(tab.id);
+    
+    // If no videos detected via DOM, fallback to current tab URL
+    if (detectedVideosGlobal.length === 0 && tab.url) {
+      detectedVideosGlobal = [{ url: tab.url, title: tab.title || 'Page Video' }];
+    }
+
+    setupVideoSelector(detectedVideosGlobal);
+  } catch (err) {
+    console.error("Boot execution failed:", err);
+    serverOnline = false;
+    updateServerIndicator(serverOnline);
     show('state-offline');
-    return;
   }
-
-  if (!tab || !tab.url || !tab.url.startsWith('http')) {
-    showNoVideoPanel('Invalid page', 'This page does not support video extraction.');
-    return;
-  }
-
-  // Scan for videos on the page
-  let detectedUrls = await detectVideosInTab(tab.id);
-  
-  // If no videos detected via DOM, fallback to current tab URL
-  if (detectedUrls.length === 0 && tab.url) {
-    detectedUrls = [tab.url];
-  }
-
-  setupVideoSelector(detectedUrls);
 })();
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -88,49 +145,121 @@ function updateServerIndicator(online) {
 async function detectVideosInTab(tabId) {
   try {
     const response = await chrome.tabs.sendMessage(tabId, { action: "detect_videos" });
-    return response && response.urls ? response.urls : [];
+    return response && response.videos ? response.videos : [];
   } catch (e) {
     console.warn("Failed to communicate with content script. Falling back to tab URL.", e);
     return [];
   }
 }
 
-function setupVideoSelector(urls) {
+function setupVideoSelector(videos) {
   show('panel-ready');
   const wrapper = document.getElementById('dropdown-wrapper');
   const select = document.getElementById('videoSelect');
 
-  if (urls.length > 1) {
+  if (videos.length >= 1) {
     wrapper.style.display = 'block';
     select.innerHTML = '';
-    urls.forEach((url, index) => {
+    
+    // Instantly populate select elements with scraped video titles
+    videos.forEach((video, index) => {
       const option = document.createElement('option');
-      option.value = url;
-      try {
-        const u = new URL(url);
-        const domain = u.hostname.replace('www.', '');
-        const pathSnippet = u.pathname.length > 15 ? u.pathname.slice(0, 15) + '...' : u.pathname;
-        option.textContent = `Video ${index + 1} (${domain}${pathSnippet})`;
-      } catch {
-        option.textContent = `Video ${index + 1} (${url.slice(0, 30)}...)`;
-      }
+      option.value = video.url;
+      const title = video.title || 'Video';
+      const displayTitle = title.length > 40 ? title.slice(0, 40) + '...' : title;
+      option.textContent = `Video ${index + 1}: ${displayTitle}`;
       select.appendChild(option);
     });
 
     // Handle dropdown selection change
     select.onchange = () => {
       currentUrl = select.value;
-      loadVideoDetails(currentUrl);
+      renderOrFetchDetails(currentUrl);
     };
 
-    currentUrl = urls[0];
-    loadVideoDetails(currentUrl);
-  } else if (urls.length === 1) {
-    wrapper.style.display = 'none';
-    currentUrl = urls[0];
-    loadVideoDetails(currentUrl);
+    currentUrl = videos[0].url;
+    renderOrFetchDetails(currentUrl);
+
+    // Fetch details/sizes sequentially in background to avoid blocking connection sockets
+    (async () => {
+      for (let i = 0; i < videos.length; i++) {
+        await fetchMetadataForOption(videos[i].url, i);
+      }
+    })();
   } else {
     showNoVideoPanel('No video found', 'Could not detect any videos on this page.');
+  }
+}
+
+async function fetchMetadataForOption(url, index) {
+  try {
+    const resp = await fetch(`${APP_URL}/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls: [url] }),
+    });
+    if (resp.ok) {
+      const text = await resp.text();
+      const info = JSON.parse(text.trim());
+      if (!info.error) {
+        metadataCache[url] = info;
+
+        // Update dropdown option label to include file size
+        const select = document.getElementById('videoSelect');
+        const option = select.options[index];
+        if (option) {
+          const title = info.title || option.textContent.replace(/^Video \d+: /, '');
+          const size = info.filesize && info.filesize !== 'unknown' ? info.filesize : '';
+          const displayTitle = title.length > 30 ? title.slice(0, 30) + '...' : title;
+          const displaySize = size ? ` [${size}]` : '';
+          option.textContent = `Video ${index + 1}: ${displayTitle}${displaySize}`;
+        }
+
+        // If currently viewed video, update layout details in real-time
+        if (currentUrl === url) {
+          renderVideoCard(info);
+        }
+      }
+    }
+  } catch (e) {
+    console.error(`Failed to fetch metadata for Option ${index + 1}`, e);
+  }
+}
+
+function renderOrFetchDetails(url) {
+  if (metadataCache[url]) {
+    renderVideoCard(metadataCache[url]);
+  } else {
+    loadVideoDetails(url);
+  }
+}
+
+function renderVideoCard(info) {
+  document.getElementById('videoTitle').textContent = info.title || 'Video File';
+  
+  // Format subtitle: size | duration | resolution
+  const parts = [];
+  if (info.filesize && info.filesize !== 'unknown') parts.push(info.filesize);
+  if (info.duration && info.duration !== 'unknown') parts.push(info.duration);
+  if (info.resolution && info.resolution !== 'unknown') parts.push(info.resolution);
+  
+  const subtitle = parts.length > 0 ? parts.join(' • ') : info.url;
+  document.getElementById('videoUrlShort').textContent = subtitle;
+
+  // Render Thumbnail
+  const targetThumb = document.getElementById('thumbWrap') || document.querySelector('.video-card img.thumb');
+  if (targetThumb) {
+    if (info.thumbnail) {
+      const img = document.createElement('img');
+      img.className = 'thumb';
+      img.src = info.thumbnail;
+      img.onerror = () => {
+        img.replaceWith(createPlaceholder());
+      };
+      targetThumb.replaceWith(img);
+    } else {
+      targetThumb.replaceWith(createPlaceholder());
+    }
   }
 }
 
@@ -140,14 +269,9 @@ async function loadVideoDetails(url) {
   document.getElementById('videoUrlShort').textContent = url;
   
   // Reset thumbnail placeholder
-  const thumbWrap = document.getElementById('thumbWrap');
-  if (!thumbWrap) {
-    const img = document.querySelector('.video-card img.thumb');
-    if (img) {
-      img.replaceWith(createPlaceholder());
-    }
-  } else {
-    thumbWrap.textContent = '🎬';
+  const targetThumb = document.getElementById('thumbWrap') || document.querySelector('.video-card img.thumb');
+  if (targetThumb) {
+    targetThumb.replaceWith(createPlaceholder());
   }
 
   try {
@@ -164,33 +288,8 @@ async function loadVideoDetails(url) {
         return;
       }
       
-      // Show video info
-      document.getElementById('videoTitle').textContent = info.title || 'Video File';
-      
-      // Format subtitle: size | duration | resolution
-      const parts = [];
-      if (info.filesize && info.filesize !== 'unknown') parts.push(info.filesize);
-      if (info.duration && info.duration !== 'unknown') parts.push(info.duration);
-      if (info.resolution && info.resolution !== 'unknown') parts.push(info.resolution);
-      
-      const subtitle = parts.length > 0 ? parts.join(' • ') : url;
-      document.getElementById('videoUrlShort').textContent = subtitle;
-
-      // Render Thumbnail
-      const targetThumb = document.getElementById('thumbWrap') || document.querySelector('.video-card img.thumb');
-      if (targetThumb) {
-        if (info.thumbnail) {
-          const img = document.createElement('img');
-          img.className = 'thumb';
-          img.src = info.thumbnail;
-          img.onerror = () => {
-            img.replaceWith(createPlaceholder());
-          };
-          targetThumb.replaceWith(img);
-        } else {
-          targetThumb.replaceWith(createPlaceholder());
-        }
-      }
+      metadataCache[url] = info;
+      renderVideoCard(info);
     } else {
       showMetadataError(url, 'Server returned error');
     }
@@ -234,10 +333,21 @@ async function sendToExtractor() {
   btn.textContent = '⏳ Sending…';
 
   try {
+    let title = '';
+    const cached = metadataCache[currentUrl];
+    if (cached && cached.title) {
+      title = cached.title;
+    } else {
+      const found = detectedVideosGlobal.find(v => v.url === currentUrl);
+      if (found) {
+        title = found.title;
+      }
+    }
+
     const resp = await fetch(`${APP_URL}/add-url`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: currentUrl }),
+      body: JSON.stringify({ url: currentUrl, title }),
     });
 
     if (resp.ok) {
@@ -267,3 +377,11 @@ async function sendToExtractor() {
 function openApp() {
   chrome.tabs.create({ url: APP_URL });
 }
+
+// Bind button events dynamically to comply with Manifest V3 CSP
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('sendBtn')?.addEventListener('click', sendToExtractor);
+  document.querySelectorAll('.btn-open').forEach(btn => {
+    btn.addEventListener('click', openApp);
+  });
+});

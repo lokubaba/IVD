@@ -100,21 +100,21 @@ EOF
     esac
 fi
 
-# 5. Check if already running on port 3000
-CHOSEN_PORT=3000
-if lsof -i :3000 &>/dev/null; then
+# 5. Check if already running on port 3001
+CHOSEN_PORT=3001
+if lsof -i :3001 &>/dev/null; then
     # Verify if it's YTV_Downloader
-    RESPONSE=$(curl -s --max-time 2 http://localhost:3000/check)
+    RESPONSE=$(curl -s --max-time 2 http://localhost:3001/check)
     if [[ "$RESPONSE" == *"installed"* ]]; then
-        echo "🚀 YTV_Downloader is already running on port 3000 in the background!"
-        echo "Opening web interface at http://localhost:3000..."
-        open "http://localhost:3000"
+        echo "🚀 YTV_Downloader is already running on port 3001 in the background!"
+        echo "Opening web interface at http://localhost:3001..."
+        open "http://localhost:3001"
         sleep 2
         exit 0
     else
-        echo "⚠️ Warning: Port 3000 is in use by another application!"
-        read -p "Enter an alternative port to run YTV_Downloader (3001-3005) [default: 3001]: " CHOSEN_PORT
-        CHOSEN_PORT=${CHOSEN_PORT:-3001}
+        echo "⚠️ Warning: Port 3001 is in use by another application!"
+        read -p "Enter an alternative port to run YTV_Downloader (3002-3005) [default: 3002]: " CHOSEN_PORT
+        CHOSEN_PORT=${CHOSEN_PORT:-3002}
         
         # Verify if the chosen port is also occupied
         if lsof -i :$CHOSEN_PORT &>/dev/null; then
