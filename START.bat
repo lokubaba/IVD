@@ -1,9 +1,12 @@
 @echo off
-cd /d "%~dp0"
-echo =========================================
-echo  Starting YTV_Downloader Server
-echo =========================================
+setlocal enabledelayedexpansion
+cls
+echo ==================================================
+echo           YTV_Downloader Installer ^& Launcher
+echo ==================================================
+echo.
 
+:: 1. Check Node.js
 where node >nul 2>nul
 if %errorlevel% neq 0 (
     echo ERROR: Node.js is not installed!
@@ -12,11 +15,80 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+:: 2. Check for Git updates
+if exist .git (
+    where git >nul 2>nul
+    if !errorlevel! eq 0 (
+        echo Checking for repository updates...
+        git fetch origin >nul 2>nul
+        for /f "tokens=*" %%i in ('git rev-parse HEAD') do set LOCAL=%%i
+        for /f "tokens=*" %%i in ('git rev-parse @{u} 2^>nul') do set REMOTE=%%i
+        
+        if defined REMOTE (
+            if "!LOCAL!" neq "!REMOTE!" (
+                echo 📢 A new update is available on GitHub!
+                set /p choice="Would you like to pull the latest changes? (y/n): "
+                if "!choice!"=="y" (
+                    git pull
+                    echo Successfully updated to the latest version!
+                ) else if "!choice!"=="Y" (
+                    git pull
+                    echo Successfully updated to the latest version!
+                ) else (
+                    echo Skipping update.
+                )
+            ) else (
+                echo ✓ Repository is up to date.
+            )
+        )
+    )
+)
+echo.
+
+:: 3. Check and install dependencies
 if not exist node_modules (
-    echo Installing Node dependencies...
+    echo 📦 node_modules folder missing. Installing dependencies...
     call npm install
+    if !errorlevel! neq 0 (
+        echo ERROR: Failed to install node dependencies.
+        pause
+        exit /b 1
+    )
+    echo ✓ Dependencies installed.
+    echo.
 )
 
-echo Launching server...
+:: 4. Prompt for Background Service Installation on Startup
+set STARTUP_LNK=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\YTV_Downloader.lnk
+if not exist "%STARTUP_LNK%" (
+    set /p run_startup="⚙️ Would you like to run YTV_Downloader in the background automatically on startup? (y/n): "
+    if "!run_startup!"=="y" (
+        set SET_STARTUP=1
+    )
+    if "!run_startup!"=="Y" (
+        set SET_STARTUP=1
+    )
+    
+    if defined SET_STARTUP (
+        powershell -Command "$WshShell = New-Object -ComObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%STARTUP_LNK%'); $Shortcut.WorkingDirectory = '%~dp0'; $Shortcut.TargetPath = '%~dp0start-invisible.vbs'; $Shortcut.Save()"
+        echo ✓ Background startup shortcut created in your Startup folder.
+        echo   Downloader will run invisibly in the background when you boot!
+        echo.
+    )
+)
+
+:: 5. Check if already running on port 3000
+netstat -ano | findstr :3000 >nul 2>nul
+if %errorlevel% eq 0 (
+    echo 🚀 YTV_Downloader is already running on port 3000!
+    echo Opening web interface at http://localhost:3000...
+    start http://localhost:3000
+    timeout /t 3 >nul
+    exit /b 0
+)
+
+:: 6. Launch server
+echo 🚀 Launching YTV_Downloader server...
+start http://localhost:3000
 call npm start
 pause
