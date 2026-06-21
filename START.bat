@@ -80,11 +80,21 @@ if not exist "%STARTUP_LNK%" (
 :: 5. Check if already running on port 3000
 netstat -ano | findstr :3000 >nul 2>nul
 if %errorlevel% eq 0 (
-    echo 🚀 YTV_Downloader is already running on port 3000!
-    echo Opening web interface at http://localhost:3000...
-    start http://localhost:3000
-    timeout /t 3 >nul
-    exit /b 0
+    :: Verify if it's YTV_Downloader using PowerShell curl
+    powershell -Command "$resp = Invoke-RestMethod -Uri 'http://localhost:3000/check' -TimeoutSec 2 -ErrorAction SilentlyContinue; if ($resp -and $resp.installed -ne $null) { exit 0 } else { exit 1 }"
+    if !errorlevel! eq 0 (
+        echo 🚀 YTV_Downloader is already running on port 3000!
+        echo Opening web interface at http://localhost:3000...
+        start http://localhost:3000
+        timeout /t 3 >nul
+        exit /b 0
+    ) else (
+        echo ⚠️ Warning: Port 3000 is in use by another application!
+        echo YTV_Downloader cannot start on port 3000.
+        echo Please close the other application or edit the PORT configuration.
+        pause
+        exit /b 1
+    )
 )
 
 :: 6. Launch server

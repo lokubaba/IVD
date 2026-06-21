@@ -102,11 +102,22 @@ fi
 
 # 5. Check if already running on port 3000
 if lsof -i :3000 &>/dev/null; then
-    echo "🚀 YTV_Downloader is already running on port 3000!"
-    echo "Opening web interface at http://localhost:3000..."
-    open "http://localhost:3000"
-    sleep 2
-    exit 0
+    # Verify if it's YTV_Downloader
+    RESPONSE=$(curl -s --max-time 2 http://localhost:3000/check)
+    if [[ "$RESPONSE" == *"installed"* ]]; then
+        echo "🚀 YTV_Downloader is already running on port 3000 in the background!"
+        echo "Opening web interface at http://localhost:3000..."
+        open "http://localhost:3000"
+        sleep 2
+        exit 0
+    else
+        echo "⚠️ Warning: Port 3000 is in use by another application!"
+        echo "YTV_Downloader cannot start on port 3000."
+        echo "Please close the other application or edit the PORT configuration."
+        echo "Press any key to exit..."
+        read -n 1
+        exit 1
+    fi
 fi
 
 # 6. Launch server
