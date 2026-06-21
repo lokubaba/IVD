@@ -31,11 +31,6 @@ async function discoverServer() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   currentTab = tab;
 
-  const isYT = tab.url && (
-    tab.url.includes('youtube.com/watch') ||
-    tab.url.includes('youtu.be/')
-  );
-
   // Check server (try default 3000 first, fallback to scanner)
   serverOnline = await checkServer();
   if (!serverOnline) {
@@ -43,43 +38,34 @@ async function discoverServer() {
   }
   updateServerIndicator(serverOnline);
 
-  if (!isYT) {
-    show('state-noyt');
-    return;
-  }
-
   if (!serverOnline) {
     show('state-offline');
     return;
   }
 
-  // On a YouTube video — get details from the page
-  currentUrl = normalizeYouTubeUrl(tab.url);
-  showReadyPanel(tab);
+  if (!tab || !tab.url || !tab.url.startsWith('http')) {
+    showNoVideoPanel('Invalid page', 'This page does not support video extraction.');
+    return;
+  }
+
+  // Scan for videos on the page
+  let detectedUrls = await detectVideosInTab(tab.id);
+  
+  // If no videos detected via DOM, fallback to current tab URL
+  if (detectedUrls.length === 0 && tab.url) {
+    detectedUrls = [tab.url];
+  }
+
+  setupVideoSelector(detectedUrls);
 })();
 
 // ── Helpers ───────────────────────────────────────────────────────────
 function show(id) {
-  ['state-noyt','state-offline','state-sent','panel-ready'].forEach(s => {
+  ['state-offline','state-sent','panel-ready'].forEach(s => {
     const el = document.getElementById(s);
-    if (el) el.style.display = s === id ? (s.startsWith('state') ? 'block' : 'block') : 'none';
+    if (el) el.style.display = s === id ? 'block' : 'none';
     if (el && s.startsWith('state')) el.classList.toggle('visible', s === id);
   });
-}
-
-function normalizeYouTubeUrl(url) {
-  try {
-    const u = new URL(url);
-    const v = u.searchParams.get('v');
-    return v ? `https://www.youtube.com/watch?v=${v}` : url;
-  } catch { return url; }
-}
-
-function videoIdFrom(url) {
-  try {
-    const u = new URL(url);
-    return u.searchParams.get('v') || url.split('/').pop().split('?')[0];
-  } catch { return null; }
 }
 
 async function checkServer() {
@@ -99,22 +85,145 @@ function updateServerIndicator(online) {
   status.textContent = online ? 'App is running ✓' : 'App not running';
 }
 
-function showReadyPanel(tab) {
+async function detectVideosInTab(tabId) {
+  try {
+    const response = await chrome.tabs.sendMessage(tabId, { action: "detect_videos" });
+    return response && response.urls ? response.urls : [];
+  } catch (e) {
+    console.warn("Failed to communicate with content script. Falling back to tab URL.", e);
+    return [];
+  }
+}
+
+function setupVideoSelector(urls) {
   show('panel-ready');
+  const wrapper = document.getElementById('dropdown-wrapper');
+  const select = document.getElementById('videoSelect');
 
-  // Video title from tab
-  const title = tab.title ? tab.title.replace(' - YouTube','').trim() : 'YouTube Video';
-  document.getElementById('videoTitle').textContent    = title;
-  document.getElementById('videoUrlShort').textContent = currentUrl;
+  if (urls.length > 1) {
+    wrapper.style.display = 'block';
+    select.innerHTML = '';
+    urls.forEach((url, index) => {
+      const option = document.createElement('option');
+      option.value = url;
+      try {
+        const u = new URL(url);
+        const domain = u.hostname.replace('www.', '');
+        const pathSnippet = u.pathname.length > 15 ? u.pathname.slice(0, 15) + '...' : u.pathname;
+        option.textContent = `Video ${index + 1} (${domain}${pathSnippet})`;
+      } catch {
+        option.textContent = `Video ${index + 1} (${url.slice(0, 30)}...)`;
+      }
+      select.appendChild(option);
+    });
 
-  // Thumbnail
-  const vid = videoIdFrom(currentUrl);
-  if (vid) {
-    const img = document.createElement('img');
-    img.className = 'thumb';
-    img.src = `https://img.youtube.com/vi/${vid}/mqdefault.jpg`;
-    img.onerror = () => {}; // keep placeholder on error
-    document.getElementById('thumbWrap').replaceWith(img);
+    // Handle dropdown selection change
+    select.onchange = () => {
+      currentUrl = select.value;
+      loadVideoDetails(currentUrl);
+    };
+
+    currentUrl = urls[0];
+    loadVideoDetails(currentUrl);
+  } else if (urls.length === 1) {
+    wrapper.style.display = 'none';
+    currentUrl = urls[0];
+    loadVideoDetails(currentUrl);
+  } else {
+    showNoVideoPanel('No video found', 'Could not detect any videos on this page.');
+  }
+}
+
+async function loadVideoDetails(url) {
+  // Show loading state in the card
+  document.getElementById('videoTitle').textContent = 'Loading video info…';
+  document.getElementById('videoUrlShort').textContent = url;
+  
+  // Reset thumbnail placeholder
+  const thumbWrap = document.getElementById('thumbWrap');
+  if (!thumbWrap) {
+    const img = document.querySelector('.video-card img.thumb');
+    if (img) {
+      img.replaceWith(createPlaceholder());
+    }
+  } else {
+    thumbWrap.textContent = '🎬';
+  }
+
+  try {
+    const resp = await fetch(`${APP_URL}/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls: [url] }),
+    });
+    if (resp.ok) {
+      const text = await resp.text();
+      const info = JSON.parse(text.trim());
+      if (info.error) {
+        showMetadataError(url, info.error);
+        return;
+      }
+      
+      // Show video info
+      document.getElementById('videoTitle').textContent = info.title || 'Video File';
+      
+      // Format subtitle: size | duration | resolution
+      const parts = [];
+      if (info.filesize && info.filesize !== 'unknown') parts.push(info.filesize);
+      if (info.duration && info.duration !== 'unknown') parts.push(info.duration);
+      if (info.resolution && info.resolution !== 'unknown') parts.push(info.resolution);
+      
+      const subtitle = parts.length > 0 ? parts.join(' • ') : url;
+      document.getElementById('videoUrlShort').textContent = subtitle;
+
+      // Render Thumbnail
+      const targetThumb = document.getElementById('thumbWrap') || document.querySelector('.video-card img.thumb');
+      if (targetThumb) {
+        if (info.thumbnail) {
+          const img = document.createElement('img');
+          img.className = 'thumb';
+          img.src = info.thumbnail;
+          img.onerror = () => {
+            img.replaceWith(createPlaceholder());
+          };
+          targetThumb.replaceWith(img);
+        } else {
+          targetThumb.replaceWith(createPlaceholder());
+        }
+      }
+    } else {
+      showMetadataError(url, 'Server returned error');
+    }
+  } catch (e) {
+    showMetadataError(url, 'Could not fetch metadata');
+  }
+}
+
+function createPlaceholder() {
+  const d = document.createElement('div');
+  d.id = 'thumbWrap';
+  d.className = 'thumb-placeholder';
+  d.textContent = '🎬';
+  return d;
+}
+
+function showMetadataError(url, errMsg) {
+  document.getElementById('videoTitle').textContent = 'Video Stream';
+  document.getElementById('videoUrlShort').textContent = url.length > 40 ? url.slice(0, 40) + '...' : url;
+  const targetThumb = document.getElementById('thumbWrap') || document.querySelector('.video-card img.thumb');
+  if (targetThumb) {
+    targetThumb.replaceWith(createPlaceholder());
+  }
+}
+
+function showNoVideoPanel(title, description) {
+  show('panel-ready');
+  document.getElementById('dropdown-wrapper').style.display = 'none';
+  document.getElementById('videoTitle').textContent = title;
+  document.getElementById('videoUrlShort').textContent = description;
+  const targetThumb = document.getElementById('thumbWrap') || document.querySelector('.video-card img.thumb');
+  if (targetThumb) {
+    targetThumb.replaceWith(createPlaceholder());
   }
 }
 

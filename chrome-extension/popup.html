@@ -123,22 +123,15 @@
 <body>
 
 <div class="header">
-  <div class="logo">yt</div>
+  <div class="logo">🎥</div>
   <div class="header-text">
-    <div class="header-title">yt-stream extractor</div>
+    <div class="header-title">Video Extractor</div>
     <div class="header-sub" id="serverStatus">Checking server…</div>
   </div>
   <div class="server-dot" id="serverDot"></div>
 </div>
 
 <div class="body">
-
-  <!-- Not on YouTube -->
-  <div class="state" id="state-noyt">
-    <div class="state-icon"></div>
-    <div class="state-title">Not a YouTube video</div>
-    <div class="state-sub">Navigate to a YouTube video page,<br/>then click this extension.</div>
-  </div>
 
   <!-- Server offline -->
   <div class="state" id="state-offline">
@@ -153,6 +146,13 @@
 
   <!-- Ready to send -->
   <div id="panel-ready" style="display:none">
+    <div id="dropdown-wrapper" style="display:none; margin-bottom:12px;">
+      <label for="videoSelect" style="display:block; font-size:10px; color:var(--muted2); margin-bottom:4px; font-weight:600; text-transform:uppercase; letter-spacing:0.03em;">Detected Videos:</label>
+      <select id="videoSelect" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid var(--border2); background:var(--surface); color:var(--text); font-family:var(--sans); font-size:12px; outline:none; cursor:pointer;">
+        <!-- options will be injected dynamically -->
+      </select>
+    </div>
+
     <div class="video-card" id="videoCard">
       <div class="thumb-placeholder" id="thumbWrap">🎬</div>
       <div class="video-info">

@@ -184,7 +184,7 @@ function getStreamInfo(youtubeUrl) {
   }
 
   return new Promise((resolve) => {
-    const cmd = `yt-dlp ${cookieStr} --print "%(title)s" --print "%(urls)s" -f "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b" --no-playlist --no-warnings "${youtubeUrl.replace(/"/g, '\\"')}"`;
+    const cmd = `yt-dlp ${cookieStr} --print "%(title)s" --print "%(filesize_approx,filesize)s" --print "%(duration)s" --print "%(resolution)s" --print "%(thumbnail)s" --print "%(urls)s" -f "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b" --no-playlist --no-warnings "${youtubeUrl.replace(/"/g, '\\"')}"`;
     exec(
       cmd,
       { timeout: 60000 },
@@ -197,16 +197,32 @@ function getStreamInfo(youtubeUrl) {
         }
         const lines      = stdout.trim().split('\n').filter(Boolean);
         const title      = lines[0] || '—';
-        const streamUrl  = lines[1] || null;
-        let resolution=null, filesize=null, duration=null, format=null, itag=null;
-        if (streamUrl) {
-          const ri  = resolutionFromUrl(streamUrl);
-          resolution = ri.resolution; itag = ri.itag;
-          format     = ri.note || 'MP4';
-          filesize   = fileSizeFromUrl(streamUrl);
-          duration   = durationFromUrl(streamUrl);
+        const rawSize    = lines[1] || null;
+        const rawDuration = lines[2] || null;
+        const resolution  = lines[3] || 'unknown';
+        const thumbnail   = lines[4] || null;
+        const streamUrl   = lines[5] || null;
+
+        // Convert filesize to human-readable
+        let filesize = 'unknown';
+        if (rawSize && !isNaN(rawSize) && rawSize !== 'NA') {
+          const clen = parseInt(rawSize, 10);
+          if (clen > 1e9) filesize = (clen/1e9).toFixed(2)+' GB';
+          else if (clen > 1e6) filesize = (clen/1e6).toFixed(1)+' MB';
+          else filesize = (clen/1e3).toFixed(0)+' KB';
         }
-        resolve({ url:youtubeUrl, stream_url:streamUrl, title, resolution, filesize, duration, format, itag, error:null });
+
+        // Convert duration to MM:SS or HH:MM:SS
+        let duration = 'unknown';
+        if (rawDuration && !isNaN(rawDuration) && rawDuration !== 'NA') {
+          const dur = parseFloat(rawDuration);
+          const h = Math.floor(dur/3600);
+          const m = Math.floor((dur%3600)/60);
+          const s = Math.floor(dur%60);
+          duration = h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+        }
+
+        resolve({ url:youtubeUrl, stream_url:streamUrl, title, resolution, filesize, duration, format:'MP4', thumbnail, error:null });
       }
     );
   });
@@ -447,8 +463,8 @@ app.post('/open-folder', (req, res) => {
 // ── Add URL from Chrome extension ────────────────────────────────────────
 app.post('/add-url', (req, res) => {
   const { url } = req.body;
-  if (!url || (!url.includes('youtube.com/watch') && !url.includes('youtu.be/'))) {
-    return res.status(400).json({ error: 'Invalid YouTube URL' });
+  if (!url || !url.startsWith('http')) {
+    return res.status(400).json({ error: 'Invalid URL' });
   }
   // Store pending URLs in memory so the UI can pick them up via polling
   pendingUrls.push(url);
