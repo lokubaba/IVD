@@ -1,9 +1,10 @@
-# Design Document: Generic Video Extractor Extension & Server Support
+# Design Document: VEX Video Extractor Extension & Server Support
 
 This document outlines the design for updating the Chrome extension and local download server to support extracting and downloading videos from any website (such as Instagram, Facebook, LinkedIn, etc.), utilizing `yt-dlp`'s native multi-site capabilities.
 
 ## Goals
 * **Generic Website Support:** Allow video extraction on any website that `yt-dlp` supports.
+* **Extension Name:** Renamed the extension to **VEX**.
 * **Multi-Video Detection:** Detect multiple video/post links on feed-heavy sites like Instagram and LinkedIn.
 * **Dropdown Selection:** Present a clean dropdown in the Chrome extension popup when multiple videos are detected.
 * **Metadata Extraction:** Fetch the title, duration, and approximate file size from the backend for the selected video before sending it to the downloader.
@@ -33,7 +34,7 @@ When the popup opens, it sends a message (`{ action: "detect_videos" }`) to the 
 ## 2. Extension Popup UI & Logic
 The popup (`popup.html` and `popup.js`) will be updated to handle a dynamic list of detected videos:
 
-* **Header:** Title changes from "yt-stream extractor" to a generic "Video Stream Extractor".
+* **Header:** Title changes from "yt-stream extractor" to "VEX".
 * **Dropdown Element:** A `<select>` element is added to the HTML, hidden by default. If multiple URLs are returned, the dropdown is populated and shown.
 * **Selected Video Card:** Shows details for the currently selected video.
 * **State Flow:**
