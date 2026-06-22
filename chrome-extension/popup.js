@@ -384,4 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.btn-open').forEach(btn => {
     btn.addEventListener('click', openApp);
   });
+  document.getElementById('settingsBtn')?.addEventListener('click', () => {
+    chrome.tabs.create({ url: `chrome://extensions/?id=${chrome.runtime.id}` });
+  });
 });
