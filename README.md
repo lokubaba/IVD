@@ -5,6 +5,10 @@ A standalone, lightweight tool to paste YouTube URLs, extract direct stream URLs
 ## Features
 - **One-click downloads** from YouTube using the companion Chrome Extension.
 - **WASM / Native downloading & splitting** using `yt-dlp` and `ffmpeg`.
+- **High-Speed Downloads** via `aria2c` multi-connection external downloader.
+- **Responsive & Premium UI** matching modern developer consoles, adaptable to mobile.
+- **Smart Scraper Fallbacks & Inline Titles** for cleaner, editable file names.
+- **Self-Healing & Port Auto-Binding** ensures zero config clashes on launch.
 - **System Tray/Background running** via simple OS launch scripts.
 - **Dockerized setup** for quick running without local Node/Python/FFmpeg dependencies.
 
