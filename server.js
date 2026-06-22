@@ -642,7 +642,40 @@ app.post('/state', (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`\n  ✅  Server running at http://localhost:${PORT}`);
-  console.log(`  📁  Serving files from: ${PUBLIC_DIR}\n`);
-});
+function startServer(targetPort) {
+  const server = http.createServer(app);
+  let port = targetPort;
+  const MAX_PORT = 3005;
+
+  function listen() {
+    server.listen(port);
+  }
+
+  server.on('listening', () => {
+    console.log(`\n  ✅  Server running at http://localhost:${port}`);
+    console.log(`  📁  Serving files from: ${PUBLIC_DIR}\n`);
+    
+    // Write active port to a state file
+    try {
+      fs.writeFileSync(path.resolve(__dirname, '.port'), String(port), 'utf8');
+    } catch (err) {
+      console.error('Failed to write .port file:', err);
+    }
+  });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE' && port < MAX_PORT) {
+      console.warn(`⚠️  Port ${port} is in use, retrying on port ${port + 1}...`);
+      port++;
+      listen();
+    } else {
+      console.error('❌  Server startup error:', err);
+      process.exit(1);
+    }
+  });
+
+  listen();
+}
+
+const startPort = parseInt(process.env.PORT, 10) || 3001;
+startServer(startPort);
