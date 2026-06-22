@@ -77,38 +77,36 @@ if not exist "%STARTUP_LNK%" (
     )
 )
 
-:: 5. Check if already running on port 3001
-set CHOSEN_PORT=3001
-netstat -ano | findstr :3001 >nul 2>nul
-if %errorlevel% eq 0 (
-    :: Verify if it's YTV_Downloader using PowerShell curl
-    powershell -Command "$resp = Invoke-RestMethod -Uri 'http://localhost:3001/check' -TimeoutSec 2 -ErrorAction SilentlyContinue; if ($resp -and $resp.installed -ne $null) { exit 0 } else { exit 1 }"
+:: 5. Check if already running on any port (3001-3005)
+set ALREADY_RUNNING=0
+for %%p in (3001 3002 3003 3004 3005) do (
+    netstat -ano | findstr :%%p >nul 2>nul
     if !errorlevel! eq 0 (
-        echo 🚀 YTV_Downloader is already running on port 3001!
-        echo Opening web interface at http://localhost:3001...
-        start http://localhost:3001
-        timeout /t 3 >nul
-        exit /b 0
-    ) else (
-        echo ⚠️ Warning: Port 3001 is in use by another application!
-        set /p CHOSEN_PORT="Enter an alternative port to run YTV_Downloader (3002-3005) [default: 3002]: "
-        if "!CHOSEN_PORT!"=="" (
-            set CHOSEN_PORT=3002
-        )
-        
-        :: Verify if chosen port is also occupied
-        netstat -ano | findstr :!CHOSEN_PORT! >nul 2>nul
+        powershell -Command "$resp = Invoke-RestMethod -Uri 'http://localhost:%%p/check' -TimeoutSec 1 -ErrorAction SilentlyContinue; if ($resp -and $resp.installed -ne $null) { exit 0 } else { exit 1 }"
         if !errorlevel! eq 0 (
-            echo ERROR: Port !CHOSEN_PORT! is also occupied. Exiting.
-            pause
-            exit /b 1
+            set ALREADY_RUNNING=1
         )
     )
 )
 
-:: 6. Launch server
-echo 🚀 Launching YTV_Downloader server on port %CHOSEN_PORT%...
-start http://localhost:%CHOSEN_PORT%
-set PORT=%CHOSEN_PORT%
-call npm start
-pause
+if !ALREADY_RUNNING! eq 1 (
+    echo 🚀 YTV_Downloader is already running!
+    echo Opening web interface at http://localhost:3000...
+    start http://localhost:3000
+    timeout /t 3 >nul
+    exit /b 0
+)
+
+:: 6. Clean up any stale .port file
+if exist .port del /q .port
+
+:: 7. Launch server
+echo 🚀 Launching YTV_Downloader server...
+start /b npm start
+
+:: Wait for server to bind and write the port file
+timeout /t 2 >nul
+
+:: 8. Open browser to the UI (port 3000)
+echo 🚀 Opening web interface at http://localhost:3000...
+start http://localhost:3000

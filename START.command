@@ -100,31 +100,42 @@ EOF
     esac
 fi
 
-# 5. Check if already running on port 3001
-CHOSEN_PORT=3001
-if lsof -i :3001 &>/dev/null; then
-    # Verify if it's YTV_Downloader
-    RESPONSE=$(curl -s --max-time 2 http://localhost:3001/check)
-    if [[ "$RESPONSE" == *"installed"* ]]; then
-        echo "🚀 YTV_Downloader is already running on port 3001 in the background!"
-        echo "Opening web interface at http://localhost:3001..."
-        open "http://localhost:3001"
-        sleep 2
-        exit 0
-    else
-        echo "⚠️ Warning: Port 3001 is in use by another application!"
-        read -p "Enter an alternative port to run YTV_Downloader (3002-3005) [default: 3002]: " CHOSEN_PORT
-        CHOSEN_PORT=${CHOSEN_PORT:-3002}
-        
-        # Verify if the chosen port is also occupied
-        if lsof -i :$CHOSEN_PORT &>/dev/null; then
-            echo "ERROR: Port $CHOSEN_PORT is also occupied. Exiting."
-            exit 1
-        fi
-    fi
+# 5. Check if already running on any port (3001-3005)
+ALREADY_RUNNING=0
+for port in {3001..3005}; do
+  RESPONSE=$(curl -s --max-time 1 http://localhost:$port/check 2>/dev/null)
+  if [[ "$RESPONSE" == *"installed"* ]]; then
+    ALREADY_RUNNING=1
+    break
+  fi
+done
+
+if [ $ALREADY_RUNNING -eq 1 ]; then
+  echo "🚀 YTV_Downloader is already running!"
+  echo "Opening web interface at http://localhost:3000..."
+  open "http://localhost:3000"
+  exit 0
 fi
 
-# 6. Launch server
-echo "🚀 Launching YTV_Downloader server on port $CHOSEN_PORT..."
-open "http://localhost:$CHOSEN_PORT"
-PORT=$CHOSEN_PORT npm start
+# 6. Clean up any stale .port file
+rm -f .port
+
+# 7. Launch server in background
+echo "🚀 Launching YTV_Downloader server..."
+npm start &
+SERVER_PID=$!
+
+# Wait for server to bind and write the port file
+for i in {1..30}; do
+  if [ -f .port ]; then
+    break
+  fi
+  sleep 0.1
+done
+
+# 8. Open browser to the UI (port 3000)
+echo "🚀 Opening web interface at http://localhost:3000..."
+open "http://localhost:3000"
+
+# Wait for background process to keep script alive
+wait $SERVER_PID
