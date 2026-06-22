@@ -6,6 +6,26 @@ const os       = require('os');
 const http     = require('http');
 const https    = require('https');
 
+// Pre-emptively augment PATH for LaunchAgent execution contexts on macOS/Linux
+if (process.platform === 'darwin' || process.platform === 'linux') {
+  const commonPaths = [
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    '/usr/bin',
+    '/bin',
+    '/usr/sbin',
+    '/sbin'
+  ];
+  const currentPath = process.env.PATH || '';
+  const paths = currentPath.split(':');
+  const addedPaths = commonPaths.filter(p => !paths.includes(p) && fs.existsSync(p));
+  
+  if (addedPaths.length > 0) {
+    process.env.PATH = [...addedPaths, currentPath].join(':');
+    console.log(`[Startup] PATH augmented with: ${addedPaths.join(':')}`);
+  }
+}
+
 const app  = express();
 const PORT = process.env.PORT || 3001;
 
