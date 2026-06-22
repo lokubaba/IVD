@@ -375,7 +375,7 @@ async function sendToExtractor() {
 
 // ── Open app ──────────────────────────────────────────────────────────
 function openApp() {
-  chrome.tabs.create({ url: APP_URL });
+  chrome.tabs.create({ url: 'http://localhost:3000' });
 }
 
 // Bind button events dynamically to comply with Manifest V3 CSP
