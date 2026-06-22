@@ -343,6 +343,9 @@ async function sendToExtractor() {
         title = found.title;
       }
     }
+    if (!title && currentTab && currentTab.title) {
+      title = currentTab.title.replace(' - YouTube', '').trim();
+    }
 
     const resp = await fetch(`${APP_URL}/add-url`, {
       method: 'POST',

@@ -92,11 +92,54 @@ for %%p in (3001 3002 3003 3004 3005) do (
 )
 
 if !ALREADY_RUNNING! eq 1 (
-    echo 🚀 YTV_Downloader is already running on port !RUNNING_PORT!!
-    echo Opening web interface at http://localhost:!RUNNING_PORT!...
-    start http://localhost:!RUNNING_PORT!
-    timeout /t 3 >nul
-    exit /b 0
+    set RUN_CONTEXT=in another active terminal session
+    powershell -Command "$owner = (Get-NetTCPConnection -LocalPort !RUNNING_PORT! -ErrorAction SilentlyContinue).OwningProcess[0]; if ($owner) { $pName = (Get-Process -Id $owner).Parent.Name; if ($pName -match 'wscript' -or $pName -match 'explorer' -or $pName -match 'svchost') { exit 0 } else { exit 1 } } else { exit 1 }"
+    if !errorlevel! eq 0 (
+        set RUN_CONTEXT=in the background as a system service
+    )
+
+    echo 🚀 YTV_Downloader is already running !RUN_CONTEXT! on port !RUNNING_PORT!!
+    echo.
+    echo What do you want to do?
+    echo   [r] Reload / Restart (stops existing process and launches with latest changes)
+    echo   [s] Stop the process and exit
+    echo   [k] Keep it running and open the web interface (default)
+    echo.
+    set /p choice="Enter choice (r/s/k): "
+    if "!choice!"=="r" (
+        set RELOAD_PROC=1
+    )
+    if "!choice!"=="R" (
+        set RELOAD_PROC=1
+    )
+    if "!choice!"=="s" (
+        set STOP_PROC=1
+    )
+    if "!choice!"=="S" (
+        set STOP_PROC=1
+    )
+
+    if defined RELOAD_PROC (
+        echo Stopping existing downloader on port !RUNNING_PORT!...
+        for /f "tokens=5" %%a in ('netstat -aon ^| findstr :!RUNNING_PORT! ^| findstr LISTENING') do (
+            taskkill /f /pid %%a >nul 2>nul
+        )
+        timeout /t 1 >nul
+        echo ✓ Stopped.
+    ) else if defined STOP_PROC (
+        echo Stopping existing downloader on port !RUNNING_PORT!...
+        for /f "tokens=5" %%a in ('netstat -aon ^| findstr :!RUNNING_PORT! ^| findstr LISTENING') do (
+            taskkill /f /pid %%a >nul 2>nul
+        )
+        echo ✓ Stopped. Exiting.
+        timeout /t 2 >nul
+        exit /b 0
+    ) else (
+        echo Opening web interface at http://localhost:!RUNNING_PORT!...
+        start http://localhost:!RUNNING_PORT!
+        timeout /t 3 >nul
+        exit /b 0
+    )
 )
 
 :: 6. Clean up any stale .port file

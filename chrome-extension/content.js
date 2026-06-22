@@ -31,28 +31,28 @@ function injectButton() {
     <span>Extract</span>
   `;
   Object.assign(btn.style, {
-    display:        'inline-flex',
-    alignItems:     'center',
-    gap:            '5px',
-    background:     '#2563eb',
-    color:          '#fff',
-    border:         'none',
-    borderRadius:   '18px',
-    padding:        '0 14px',
-    height:         '36px',
-    fontSize:       '13px',
-    fontWeight:     '600',
-    fontFamily:     'inherit',
-    cursor:         'pointer',
-    marginLeft:     '8px',
-    transition:     'background .15s, transform .1s',
-    flexShrink:     '0',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '5px',
+    background: '#2563eb',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '18px',
+    padding: '0 14px',
+    height: '36px',
+    fontSize: '13px',
+    fontWeight: '600',
+    fontFamily: 'inherit',
+    cursor: 'pointer',
+    marginLeft: '8px',
+    transition: 'background .15s, transform .1s',
+    flexShrink: '0',
   });
 
   btn.onmouseenter = () => btn.style.background = '#1d4ed8';
   btn.onmouseleave = () => btn.style.background = '#2563eb';
-  btn.onmousedown  = () => btn.style.transform  = 'scale(.97)';
-  btn.onmouseup    = () => btn.style.transform  = 'scale(1)';
+  btn.onmousedown = () => btn.style.transform = 'scale(.97)';
+  btn.onmouseup = () => btn.style.transform = 'scale(1)';
 
   btn.onclick = async () => {
     const videoUrl = getCurrentVideoUrl();
@@ -136,7 +136,7 @@ function getBestVideoUrl(video, platform) {
   if (video.src && !video.src.startsWith('blob:') && !video.src.startsWith('mediasource:')) {
     return video.src;
   }
-  
+
   // Check <source> tags inside the video tag
   const sourceTag = video.querySelector('source');
   if (sourceTag && sourceTag.src && !sourceTag.src.startsWith('blob:') && !sourceTag.src.startsWith('mediasource:')) {
@@ -145,7 +145,7 @@ function getBestVideoUrl(video, platform) {
 
   // Fallback: resolve the page post URL so yt-dlp can attempt extraction on the backend
   let postUrl = null;
-  
+
   if (platform === 'instagram') {
     const article = video.closest('article') || video.closest('div[role="dialog"]');
     if (article) {
@@ -159,8 +159,8 @@ function getBestVideoUrl(video, platform) {
     if (!postUrl && (window.location.pathname.startsWith('/p/') || window.location.pathname.startsWith('/reel/'))) {
       postUrl = window.location.href;
     }
-  } 
-  
+  }
+
   else if (platform === 'linkedin') {
     const card = video.closest('.feed-shared-update-v2, article, [data-urn]');
     if (card) {
@@ -171,8 +171,8 @@ function getBestVideoUrl(video, platform) {
       const nearestLink = video.closest('a') || video.parentElement?.querySelector('a[href*="/feed/update/"], a[href*="/posts/"]');
       if (nearestLink) postUrl = nearestLink.href;
     }
-  } 
-  
+  }
+
   else if (platform === 'facebook') {
     const card = video.closest('[role="article"], .userContentWrapper, article');
     if (card) {
@@ -189,7 +189,7 @@ function getBestVideoUrl(video, platform) {
     try {
       const u = new URL(postUrl, window.location.origin);
       return u.origin + u.pathname;
-    } catch {}
+    } catch { }
   }
 
   return window.location.href;
@@ -208,7 +208,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         mainTitle = mainTitle.replace(' - YouTube', '').trim();
         list.push({ url: `https://www.youtube.com/watch?v=${v}`, title: mainTitle });
       }
-      
+
       document.querySelectorAll('a[href*="/watch?v="]').forEach(a => {
         try {
           const u = new URL(a.href, window.location.origin);
@@ -218,7 +218,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             t = t.replace(/\n/g, '').trim();
             list.push({ url: `https://www.youtube.com/watch?v=${val}`, title: t || `YouTube Video` });
           }
-        } catch {}
+        } catch { }
       });
 
       document.querySelectorAll('a[href*="/shorts/"]').forEach(a => {
@@ -231,7 +231,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             t = t.replace(/\n/g, '').trim();
             list.push({ url: `https://www.youtube.com/shorts/${val}`, title: t || `YouTube Shorts` });
           }
-        } catch {}
+        } catch { }
       });
     }
 
@@ -305,9 +305,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           let t = parentAnchor.title || parentAnchor.innerText || document.title || '';
           t = t.replace(/\n/g, ' ').trim();
           list.push({ url: cleanUrl, title: t || 'Video Player' });
-        } catch {}
+        } catch { }
       } else if (vid.src && !vid.src.startsWith('blob:') && !vid.src.startsWith('mediasource:')) {
-        list.push({ url: vid.src, title: 'Direct Video Stream' });
+        let t = document.title || '';
+        t = t.replace(/\n/g, ' ').trim();
+        if (t.length > 80) t = t.slice(0, 80) + '...';
+        list.push({ url: vid.src, title: t || 'Direct Video Stream' });
       }
     });
 
@@ -433,7 +436,7 @@ function injectVideoOverlays() {
       }
       titleText = titleText.replace(/\n/g, ' ').trim();
       if (titleText.length > 80) titleText = titleText.slice(0, 80) + '...';
-      
+
       const defaultTitle = platform === 'linkedin' ? 'LinkedIn Post' : platform === 'instagram' ? 'Instagram Post' : platform === 'facebook' ? 'Facebook Video' : 'Video Stream';
       const videoTitle = titleText || defaultTitle;
 

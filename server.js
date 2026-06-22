@@ -9,6 +9,7 @@ const https = require('https');
 // Pre-emptively augment PATH for LaunchAgent execution contexts on macOS/Linux
 if (process.platform === 'darwin' || process.platform === 'linux') {
   const commonPaths = [
+    '/Library/Frameworks/Python.framework/Versions/3.13/bin',
     '/opt/homebrew/bin',
     '/usr/local/bin',
     '/usr/bin',
@@ -184,6 +185,19 @@ function getSetting(key, fallbackEnvKey) {
   return "";
 }
 
+function hasAria2c() {
+  const exe = process.platform === 'win32' ? 'aria2c.exe' : 'aria2c';
+  const paths = (process.env.PATH || '').split(process.platform === 'win32' ? ';' : ':');
+  for (const p of paths) {
+    try {
+      if (fs.existsSync(path.join(p, exe))) {
+        return true;
+      }
+    } catch { }
+  }
+  return false;
+}
+
 function getYtDlpCookiesArgs() {
   let defaultBrowser = "none";
   if (process.platform === 'darwin') {
@@ -241,6 +255,41 @@ function isDirectVideoStream(url) {
   return false;
 }
 
+function probeDirectStream(url) {
+  return new Promise((resolve) => {
+    // Run ffprobe to get width, height, and duration
+    const cmd = `ffprobe -v error -select_streams v:0 -show_entries stream=width,height -show_entries format=duration -of json "${url.replace(/"/g, '\\"')}"`;
+    exec(cmd, { timeout: 10000 }, (err, stdout) => {
+      if (err) {
+        return resolve({ resolution: 'unknown', duration: 'unknown' });
+      }
+      try {
+        const data = JSON.parse(stdout);
+        const stream = data.streams && data.streams[0];
+        const format = data.format;
+
+        let resolution = 'unknown';
+        if (stream && stream.width && stream.height) {
+          resolution = `${stream.width}x${stream.height}`;
+        }
+
+        let duration = 'unknown';
+        if (format && format.duration && !isNaN(format.duration)) {
+          const dur = parseFloat(format.duration);
+          const h = Math.floor(dur / 3600);
+          const m = Math.floor((dur % 3600) / 60);
+          const s = Math.floor(dur % 60);
+          duration = h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+        }
+
+        resolve({ resolution, duration });
+      } catch {
+        resolve({ resolution: 'unknown', duration: 'unknown' });
+      }
+    });
+  });
+}
+
 async function getStreamInfo(youtubeUrl) {
   // If it's already a direct video stream URL, bypass yt-dlp completely
   if (isDirectVideoStream(youtubeUrl)) {
@@ -263,20 +312,23 @@ async function getStreamInfo(youtubeUrl) {
       } catch { }
     }
 
+    const probe = await probeDirectStream(youtubeUrl);
+
     return {
       url: youtubeUrl,
       stream_url: youtubeUrl,
       title: title,
-      resolution: 'unknown',
+      resolution: probe.resolution,
       filesize: filesize,
-      duration: 'unknown',
+      duration: probe.duration,
       format: youtubeUrl.toLowerCase().endsWith('.webm') ? 'WEBM' : 'MP4',
       itag: null,
       error: null
     };
   }
 
-  const cookieArgs = getYtDlpCookiesArgs();
+  const isYouTube = youtubeUrl.includes('youtube.com') || youtubeUrl.includes('youtu.be');
+  const cookieArgs = isYouTube ? [] : getYtDlpCookiesArgs();
   let cookieStr = "";
   if (cookieArgs.length === 2) {
     if (cookieArgs[0] === "--cookies") {
@@ -287,7 +339,7 @@ async function getStreamInfo(youtubeUrl) {
   }
 
   return new Promise((resolve) => {
-    const cmd = `yt-dlp ${cookieStr} --print "%(title)s" --print "%(filesize_approx,filesize)s" --print "%(duration)s" --print "%(resolution)s" --print "%(thumbnail)s" --print "%(urls)s" -f "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b" --no-playlist --no-warnings "${youtubeUrl.replace(/"/g, '\\"')}"`;
+    const cmd = `yt-dlp ${cookieStr} --print "%(title)s" --print "%(filesize_approx,filesize)s" --print "%(duration)s" --print "%(resolution)s" --print "%(thumbnail)s" --print "%(urls)s" --no-playlist --no-warnings "${youtubeUrl.replace(/"/g, '\\"')}"`;
     exec(
       cmd,
       { timeout: 60000 },
@@ -407,26 +459,72 @@ app.get('/download-progress', (req, res) => {
   const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
   send({ type: 'start', filename: safeName + '.mp4', destFolder, destFile });
 
-  const cookieArgs = getYtDlpCookiesArgs();
+  const isYouTube = ytUrl.includes('youtube.com') || ytUrl.includes('youtu.be');
+  const cookieArgs = isYouTube ? [] : getYtDlpCookiesArgs();
+  const useAria2c = hasAria2c();
+  if (useAria2c) {
+    console.log(`[Download] Accelerating with aria2c multi-connection downloader...`);
+  }
   const spawnArgs = [
     ...cookieArgs,
     '-f', 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b',
     '--no-playlist', '--newline',
     '--concurrent-fragments', '5',
-    '-o', destFile,
-    ytUrl
   ];
+  if (useAria2c) {
+    spawnArgs.push('--external-downloader', 'aria2c');
+    spawnArgs.push('--external-downloader-args', '-x 16 -s 16 -k 1M');
+  }
+  spawnArgs.push('-o', destFile, ytUrl);
 
   const ytdlp = spawn('yt-dlp', spawnArgs);
-
-  const progressRe = /\[download\]\s+([\d.]+)%\s+of\s+([\d.]+\s*\S+)\s+at\s+([\d.]+\s*\S+\/s)/;
 
   ytdlp.stdout.on('data', (chunk) => {
     const text = chunk.toString();
     process.stdout.write(text);
-    for (const line of text.split('\n')) {
-      const m = line.match(progressRe);
-      if (m) send({ type: 'progress', percent: parseFloat(m[1]), total: m[2].trim(), speed: m[3].trim() });
+    const lines = text.replace(/\r/g, '\n').split('\n');
+    for (const line of lines) {
+      const cleanLine = line.trim();
+      if (!cleanLine) continue;
+
+      // 1. Match standard download line, e.g.:
+      // [download]  95.4% of ~ 196.46MiB at    3.84MiB/s ETA 00:03 (frag 381/399)
+      // or [download]  24.1% of   14.40GiB at   10.03MiB/s ETA 18:36
+      const m = cleanLine.match(/\[download\]\s+([\d.]+)%\s+of\s+(?:~\s*)?([^\s]+)\s+at\s+([^\s]+)/);
+      if (m) {
+        let speed = m[3].trim();
+        let total = m[2].trim();
+
+        // Match fragment count at the end if present, e.g. (frag 381/399)
+        const fragMatch = cleanLine.match(/\(frag\s+(\d+)\/(\d+)\)/);
+        if (fragMatch) {
+          total = `${total} (frag ${fragMatch[1]}/${fragMatch[2]})`;
+        }
+
+        send({ type: 'progress', percent: parseFloat(m[1]), total: total, speed: speed });
+        continue;
+      }
+
+      // 2. Match aria2c parallel segments progress:
+      // [#76f18c 12.3MiB/45.6MiB(26%) CN:1 SPD:3.1MiB/s]
+      const am = cleanLine.match(/\[#\w+\s+([^\s/]+)\/([^\s(]+)\(([\d.]+)%\)\s+.*SPD:([^\s]+)/);
+      if (am) {
+        send({ type: 'progress', percent: parseFloat(am[3]), total: am[2].trim(), speed: am[4].trim() });
+        continue;
+      }
+
+      // 3. Match native fragment progress without percentages:
+      // [download] Downloading video fragment 12 of 125
+      const fm = cleanLine.match(/\[download\]\s+Downloading\s+(?:video\s+)?fragment\s+(\d+)\s+of\s+(\d+)/);
+      if (fm) {
+        const current = parseInt(fm[1], 10);
+        const totalFrags = parseInt(fm[2], 10);
+        if (totalFrags > 0) {
+          const percent = parseFloat(((current / totalFrags) * 100).toFixed(1));
+          send({ type: 'progress', percent, total: `Frag ${current}/${totalFrags}`, speed: 'Downloading' });
+        }
+        continue;
+      }
     }
   });
   ytdlp.stderr.on('data', (chunk) => process.stdout.write(chunk.toString()));

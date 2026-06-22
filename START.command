@@ -113,10 +113,46 @@ for port in {3001..3005}; do
 done
 
 if [ $ALREADY_RUNNING -eq 1 ]; then
-  echo "🚀 YTV_Downloader is already running on port $RUNNING_PORT!"
-  echo "Opening web interface at http://localhost:$RUNNING_PORT..."
-  open "http://localhost:$RUNNING_PORT"
-  exit 0
+  PID=$(lsof -t -i :$RUNNING_PORT 2>/dev/null)
+  RUN_CONTEXT="in another active terminal session"
+  if [ -n "$PID" ]; then
+    TTY_VAL=$(ps -o tty= -p $PID 2>/dev/null | tr -d ' ')
+    if [ "$TTY_VAL" = "??" ] || [ -z "$TTY_VAL" ]; then
+      RUN_CONTEXT="in the background as a system service"
+    fi
+  fi
+
+  echo "🚀 YTV_Downloader is already running $RUN_CONTEXT on port $RUNNING_PORT!"
+  echo ""
+  echo "What do you want to do?"
+  echo "  [r] Reload / Restart (stops existing process and launches with latest changes)"
+  echo "  [s] Stop the process and exit"
+  echo "  [k] Keep it running and open the web interface (default)"
+  echo ""
+  read -p "Enter choice (r/s/k): " choice
+  case "$choice" in
+    r|R )
+      echo "Stopping existing downloader on port $RUNNING_PORT..."
+      if [ -n "$PID" ]; then
+        kill -9 $PID
+        sleep 1
+        echo "✓ Stopped."
+      fi
+      ;;
+    s|S )
+      echo "Stopping existing downloader on port $RUNNING_PORT..."
+      if [ -n "$PID" ]; then
+        kill -9 $PID
+        echo "✓ Stopped. Exiting."
+      fi
+      exit 0
+      ;;
+    * )
+      echo "Opening web interface at http://localhost:$RUNNING_PORT..."
+      open "http://localhost:$RUNNING_PORT"
+      exit 0
+      ;;
+  esac
 fi
 
 # 6. Clean up any stale .port file
