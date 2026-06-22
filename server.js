@@ -1,10 +1,10 @@
-const express  = require('express');
+const express = require('express');
 const { exec, spawn } = require('child_process');
-const path     = require('path');
-const fs       = require('fs');
-const os       = require('os');
-const http     = require('http');
-const https    = require('https');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const http = require('http');
+const https = require('https');
 
 // Pre-emptively augment PATH for LaunchAgent execution contexts on macOS/Linux
 if (process.platform === 'darwin' || process.platform === 'linux') {
@@ -19,14 +19,14 @@ if (process.platform === 'darwin' || process.platform === 'linux') {
   const currentPath = process.env.PATH || '';
   const paths = currentPath.split(':');
   const addedPaths = commonPaths.filter(p => !paths.includes(p) && fs.existsSync(p));
-  
+
   if (addedPaths.length > 0) {
     process.env.PATH = [...addedPaths, currentPath].join(':');
     console.log(`[Startup] PATH augmented with: ${addedPaths.join(':')}`);
   }
 }
 
-const app  = express();
+const app = express();
 const PORT = process.env.PORT || 3001;
 
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
@@ -51,38 +51,38 @@ app.get('/', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'index.html')));
 
 // ── itag map ──────────────────────────────────────────────────────────────
 const ITAG_MAP = {
-  '18':  { res:'360p',    note:'MP4 video+audio'  },
-  '22':  { res:'720p',    note:'MP4 video+audio'  },
-  '37':  { res:'1080p',   note:'MP4 video+audio'  },
-  '134': { res:'360p',    note:'MP4 video only'   },
-  '135': { res:'480p',    note:'MP4 video only'   },
-  '136': { res:'720p',    note:'MP4 video only'   },
-  '137': { res:'1080p',   note:'MP4 video only'   },
-  '138': { res:'2160p',   note:'MP4 video only'   },
-  '160': { res:'144p',    note:'MP4 video only'   },
-  '264': { res:'1440p',   note:'MP4 video only'   },
-  '266': { res:'2160p',   note:'MP4 video only'   },
-  '298': { res:'720p60',  note:'MP4 60fps'        },
-  '299': { res:'1080p60', note:'MP4 60fps'        },
-  '242': { res:'360p',    note:'WebM video only'  },
-  '243': { res:'480p',    note:'WebM video only'  },
-  '247': { res:'720p',    note:'WebM video only'  },
-  '248': { res:'1080p',   note:'WebM video only'  },
-  '271': { res:'1440p',   note:'WebM video only'  },
-  '272': { res:'2160p',   note:'WebM video only'  },
-  '278': { res:'144p',    note:'WebM video only'  },
-  '313': { res:'2160p',   note:'WebM video only'  },
-  '394': { res:'144p',    note:'AV1 video only'   },
-  '395': { res:'240p',    note:'AV1 video only'   },
-  '396': { res:'360p',    note:'AV1 video only'   },
-  '397': { res:'480p',    note:'AV1 video only'   },
-  '398': { res:'720p',    note:'AV1 video only'   },
-  '399': { res:'1080p',   note:'AV1 video only'   },
-  '400': { res:'1440p',   note:'AV1 video only'   },
-  '401': { res:'2160p',   note:'AV1 video only'   },
-  '139': { res:'audio',   note:'M4A 48kbps'       },
-  '140': { res:'audio',   note:'M4A 128kbps'      },
-  '251': { res:'audio',   note:'Opus 160kbps'     },
+  '18': { res: '360p', note: 'MP4 video+audio' },
+  '22': { res: '720p', note: 'MP4 video+audio' },
+  '37': { res: '1080p', note: 'MP4 video+audio' },
+  '134': { res: '360p', note: 'MP4 video only' },
+  '135': { res: '480p', note: 'MP4 video only' },
+  '136': { res: '720p', note: 'MP4 video only' },
+  '137': { res: '1080p', note: 'MP4 video only' },
+  '138': { res: '2160p', note: 'MP4 video only' },
+  '160': { res: '144p', note: 'MP4 video only' },
+  '264': { res: '1440p', note: 'MP4 video only' },
+  '266': { res: '2160p', note: 'MP4 video only' },
+  '298': { res: '720p60', note: 'MP4 60fps' },
+  '299': { res: '1080p60', note: 'MP4 60fps' },
+  '242': { res: '360p', note: 'WebM video only' },
+  '243': { res: '480p', note: 'WebM video only' },
+  '247': { res: '720p', note: 'WebM video only' },
+  '248': { res: '1080p', note: 'WebM video only' },
+  '271': { res: '1440p', note: 'WebM video only' },
+  '272': { res: '2160p', note: 'WebM video only' },
+  '278': { res: '144p', note: 'WebM video only' },
+  '313': { res: '2160p', note: 'WebM video only' },
+  '394': { res: '144p', note: 'AV1 video only' },
+  '395': { res: '240p', note: 'AV1 video only' },
+  '396': { res: '360p', note: 'AV1 video only' },
+  '397': { res: '480p', note: 'AV1 video only' },
+  '398': { res: '720p', note: 'AV1 video only' },
+  '399': { res: '1080p', note: 'AV1 video only' },
+  '400': { res: '1440p', note: 'AV1 video only' },
+  '401': { res: '2160p', note: 'AV1 video only' },
+  '139': { res: 'audio', note: 'M4A 48kbps' },
+  '140': { res: 'audio', note: 'M4A 128kbps' },
+  '251': { res: 'audio', note: 'Opus 160kbps' },
 };
 
 function itagFromUrl(url) {
@@ -97,17 +97,17 @@ function fileSizeFromUrl(url) {
   try {
     const clen = parseInt(new URL(url).searchParams.get('clen'));
     if (!clen) return null;
-    if (clen > 1e9) return (clen/1e9).toFixed(2)+' GB';
-    if (clen > 1e6) return (clen/1e6).toFixed(1)+' MB';
-    return (clen/1e3).toFixed(0)+' KB';
+    if (clen > 1e9) return (clen / 1e9).toFixed(2) + ' GB';
+    if (clen > 1e6) return (clen / 1e6).toFixed(1) + ' MB';
+    return (clen / 1e3).toFixed(0) + ' KB';
   } catch { return null; }
 }
 function durationFromUrl(url) {
   try {
     const dur = parseFloat(new URL(url).searchParams.get('dur'));
     if (!dur) return null;
-    const h=Math.floor(dur/3600), m=Math.floor((dur%3600)/60), s=Math.floor(dur%60);
-    return h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+    const h = Math.floor(dur / 3600), m = Math.floor((dur % 3600) / 60), s = Math.floor(dur % 60);
+    return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
   } catch { return null; }
 }
 
@@ -220,24 +220,24 @@ function isDirectVideoStream(url) {
   try {
     const u = new URL(url);
     const pathname = u.pathname.toLowerCase();
-    
+
     // Check extension
     if (pathname.endsWith('.mp4') || pathname.endsWith('.webm') || pathname.endsWith('.mkv') || pathname.endsWith('.m3u8') || pathname.endsWith('.mov')) {
       return true;
     }
-    
+
     // Check if it's NOT a standard platform page
     const host = u.hostname.toLowerCase();
     const isPlatform = host.includes('youtube.com') || host.includes('youtu.be') ||
-                       host.includes('instagram.com') || host.includes('facebook.com') || host.includes('fb.watch') ||
-                       host.includes('linkedin.com') || host.includes('twitter.com') || host.includes('x.com') ||
-                       host.includes('tiktok.com') || host.includes('vimeo.com');
-                       
+      host.includes('instagram.com') || host.includes('facebook.com') || host.includes('fb.watch') ||
+      host.includes('linkedin.com') || host.includes('twitter.com') || host.includes('x.com') ||
+      host.includes('tiktok.com') || host.includes('vimeo.com');
+
     // If it is not a platform page, and it's sent to us, it's highly likely to be a direct video stream URL
     if (!isPlatform) {
       return true;
     }
-  } catch {}
+  } catch { }
   return false;
 }
 
@@ -247,11 +247,11 @@ async function getStreamInfo(youtubeUrl) {
     const probedSize = await getRemoteFileSize(youtubeUrl);
     let filesize = 'unknown';
     if (probedSize) {
-      if (probedSize > 1e9) filesize = (probedSize/1e9).toFixed(2)+' GB';
-      else if (probedSize > 1e6) filesize = (probedSize/1e6).toFixed(1)+' MB';
-      else filesize = (probedSize/1e3).toFixed(0)+' KB';
+      if (probedSize > 1e9) filesize = (probedSize / 1e9).toFixed(2) + ' GB';
+      else if (probedSize > 1e6) filesize = (probedSize / 1e6).toFixed(1) + ' MB';
+      else filesize = (probedSize / 1e3).toFixed(0) + ' KB';
     }
-    
+
     let title = urlTitles.get(youtubeUrl) || 'Direct Video Stream';
     if (title === 'Direct Video Stream') {
       try {
@@ -260,9 +260,9 @@ async function getStreamInfo(youtubeUrl) {
         if (last && last.includes('.')) {
           title = decodeURIComponent(last);
         }
-      } catch {}
+      } catch { }
     }
-    
+
     return {
       url: youtubeUrl,
       stream_url: youtubeUrl,
@@ -293,33 +293,35 @@ async function getStreamInfo(youtubeUrl) {
       { timeout: 60000 },
       async (error, stdout, stderr) => {
         if (error) {
-          resolve({ url:youtubeUrl, stream_url:null, title:null, resolution:null,
-                    filesize:null, duration:null, format:null, itag:null,
-                    error: stderr.trim() || error.message });
+          resolve({
+            url: youtubeUrl, stream_url: null, title: null, resolution: null,
+            filesize: null, duration: null, format: null, itag: null,
+            error: stderr.trim() || error.message
+          });
           return;
         }
-        const lines      = stdout.trim().split('\n').filter(Boolean);
-        const title      = lines[0] || '—';
-        const rawSize    = lines[1] || null;
+        const lines = stdout.trim().split('\n').filter(Boolean);
+        const title = lines[0] || '—';
+        const rawSize = lines[1] || null;
         const rawDuration = lines[2] || null;
-        const resolution  = lines[3] || 'unknown';
-        const thumbnail   = lines[4] || null;
-        const streamUrl   = lines[5] || null;
+        const resolution = lines[3] || 'unknown';
+        const thumbnail = lines[4] || null;
+        const streamUrl = lines[5] || null;
 
         // Convert filesize to human-readable
         let filesize = 'unknown';
         if (rawSize && !isNaN(rawSize) && rawSize !== 'NA') {
           const clen = parseInt(rawSize, 10);
-          if (clen > 1e9) filesize = (clen/1e9).toFixed(2)+' GB';
-          else if (clen > 1e6) filesize = (clen/1e6).toFixed(1)+' MB';
-          else filesize = (clen/1e3).toFixed(0)+' KB';
+          if (clen > 1e9) filesize = (clen / 1e9).toFixed(2) + ' GB';
+          else if (clen > 1e6) filesize = (clen / 1e6).toFixed(1) + ' MB';
+          else filesize = (clen / 1e3).toFixed(0) + ' KB';
         } else if (streamUrl && streamUrl.startsWith('http')) {
           // Probe remote file size
           const probedSize = await getRemoteFileSize(streamUrl);
           if (probedSize) {
-            if (probedSize > 1e9) filesize = (probedSize/1e9).toFixed(2)+' GB';
-            else if (probedSize > 1e6) filesize = (probedSize/1e6).toFixed(1)+' MB';
-            else filesize = (probedSize/1e3).toFixed(0)+' KB';
+            if (probedSize > 1e9) filesize = (probedSize / 1e9).toFixed(2) + ' GB';
+            else if (probedSize > 1e6) filesize = (probedSize / 1e6).toFixed(1) + ' MB';
+            else filesize = (probedSize / 1e3).toFixed(0) + ' KB';
           }
         }
 
@@ -327,13 +329,13 @@ async function getStreamInfo(youtubeUrl) {
         let duration = 'unknown';
         if (rawDuration && !isNaN(rawDuration) && rawDuration !== 'NA') {
           const dur = parseFloat(rawDuration);
-          const h = Math.floor(dur/3600);
-          const m = Math.floor((dur%3600)/60);
-          const s = Math.floor(dur%60);
-          duration = h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+          const h = Math.floor(dur / 3600);
+          const m = Math.floor((dur % 3600) / 60);
+          const s = Math.floor(dur % 60);
+          duration = h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
         }
 
-        resolve({ url:youtubeUrl, stream_url:streamUrl, title, resolution, filesize, duration, format:'MP4', thumbnail, error:null });
+        resolve({ url: youtubeUrl, stream_url: streamUrl, title, resolution, filesize, duration, format: 'MP4', thumbnail, error: null });
       }
     );
   });
@@ -342,7 +344,7 @@ async function getStreamInfo(youtubeUrl) {
 // ── Extract stream URLs ───────────────────────────────────────────────────
 app.post('/extract', async (req, res) => {
   const { urls } = req.body;
-  if (!Array.isArray(urls) || !urls.length) return res.status(400).json({ error:'No URLs' });
+  if (!Array.isArray(urls) || !urls.length) return res.status(400).json({ error: 'No URLs' });
   res.setHeader('Content-Type', 'application/x-ndjson');
   res.setHeader('Transfer-Encoding', 'chunked');
   for (const url of urls) res.write(JSON.stringify(await getStreamInfo(url)) + '\n');
@@ -356,7 +358,7 @@ app.get('/default-folder', (req, res) => {
     res.json({ folder: '/app/downloads' });
   } else {
     const downloads = path.join(os.homedir(), 'Downloads');
-    const folder    = fs.existsSync(downloads) ? downloads : os.homedir();
+    const folder = fs.existsSync(downloads) ? downloads : os.homedir();
     res.json({ folder });
   }
 });
@@ -366,9 +368,9 @@ app.get('/download-progress', (req, res) => {
   const { url, title, folder } = req.query;
   if (!url) return res.status(400).send('Missing url');
 
-  const ytUrl    = decodeURIComponent(url);
+  const ytUrl = decodeURIComponent(url);
   const safeName = (title && title !== '—')
-    ? decodeURIComponent(title).replace(/[^\w\s\-]/g,'').trim().slice(0,80) || 'video'
+    ? decodeURIComponent(title).replace(/[^\w\s\-]/g, '').trim().slice(0, 80) || 'video'
     : 'video';
 
   // Resolve destination folder — use provided folder or default to ~/Downloads
@@ -403,7 +405,7 @@ app.get('/download-progress', (req, res) => {
   res.flushHeaders();
 
   const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
-  send({ type:'start', filename: safeName+'.mp4', destFolder, destFile });
+  send({ type: 'start', filename: safeName + '.mp4', destFolder, destFile });
 
   const cookieArgs = getYtDlpCookiesArgs();
   const spawnArgs = [
@@ -424,19 +426,19 @@ app.get('/download-progress', (req, res) => {
     process.stdout.write(text);
     for (const line of text.split('\n')) {
       const m = line.match(progressRe);
-      if (m) send({ type:'progress', percent:parseFloat(m[1]), total:m[2].trim(), speed:m[3].trim() });
+      if (m) send({ type: 'progress', percent: parseFloat(m[1]), total: m[2].trim(), speed: m[3].trim() });
     }
   });
   ytdlp.stderr.on('data', (chunk) => process.stdout.write(chunk.toString()));
 
-  ytdlp.on('error', (err) => { send({ type:'error', message:err.message }); res.end(); });
+  ytdlp.on('error', (err) => { send({ type: 'error', message: err.message }); res.end(); });
 
   ytdlp.on('close', async (code) => {
-    if (code !== 0) { send({ type:'error', message:`yt-dlp exited with code ${code}` }); res.end(); return; }
+    if (code !== 0) { send({ type: 'error', message: `yt-dlp exited with code ${code}` }); res.end(); return; }
 
     const numParts = parseInt(req.query.parts, 10) || 1;
     if (numParts <= 1) {
-      send({ type:'done', filename:safeName+'.mp4', destFile, destFolder });
+      send({ type: 'done', filename: safeName + '.mp4', destFile, destFolder });
       res.end();
       return;
     }
@@ -461,13 +463,13 @@ app.get('/download-progress', (req, res) => {
       for (let i = 1; i < numParts; i++) {
         const targetTime = i * targetInterval;
         const startWindow = Math.max(0, targetTime - 60);
-        
+
         const silences = await new Promise((resolve) => {
           exec(`ffmpeg -ss ${startWindow} -t 120 -i "${destFile}" -vn -filter_complex silencedetect=noise=-30dB:d=0.5 -f null -`, (err, stdout, stderr) => {
             const lines = (stderr || '').split('\n');
             const found = [];
             let currentStart = null;
-            
+
             for (const line of lines) {
               const mStart = line.match(/silence_start:\s*([\d.]+)/);
               if (mStart) {
@@ -519,9 +521,9 @@ app.get('/download-progress', (req, res) => {
         const h = Math.floor(partDur / 3600);
         const m = Math.floor((partDur % 3600) / 60);
         const s = Math.floor(partDur % 60);
-        const durStr = h > 0 
-          ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` 
-          : `${m}:${String(s).padStart(2,'0')}`;
+        const durStr = h > 0
+          ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+          : `${m}:${String(s).padStart(2, '0')}`;
 
         let sizeStr = '—';
         try {
@@ -530,7 +532,7 @@ app.get('/download-progress', (req, res) => {
           if (bytes > 1e9) sizeStr = (bytes / 1e9).toFixed(2) + ' GB';
           else if (bytes > 1e6) sizeStr = (bytes / 1e6).toFixed(1) + ' MB';
           else sizeStr = (bytes / 1e3).toFixed(0) + ' KB';
-        } catch {}
+        } catch { }
 
         partFiles.push({
           title: partName,
@@ -563,11 +565,11 @@ app.get('/download-progress', (req, res) => {
 // ── Open folder in Finder ─────────────────────────────────────────────────
 app.post('/open-folder', (req, res) => {
   const { folder } = req.body;
-  if (!folder) return res.status(400).json({ error:'No folder' });
+  if (!folder) return res.status(400).json({ error: 'No folder' });
   // macOS: "open" opens Finder; Linux: "xdg-open"
   const cmd = process.platform === 'darwin' ? `open "${folder}"` : `xdg-open "${folder}"`;
   exec(cmd, (err) => {
-    res.json(err ? { ok:false, error:err.message } : { ok:true });
+    res.json(err ? { ok: false, error: err.message } : { ok: true });
   });
 });
 
@@ -598,7 +600,7 @@ app.get('/pending-urls', (req, res) => {
 // ── Check yt-dlp ─────────────────────────────────────────────────────────
 app.get('/check', (req, res) => {
   exec('yt-dlp --version', (err, stdout) => {
-    res.json(err ? { installed:false } : { installed:true, version:stdout.trim(), vex:true });
+    res.json(err ? { installed: false } : { installed: true, version: stdout.trim(), vex: true });
   });
 });
 
@@ -614,6 +616,13 @@ app.post('/check-exists', (req, res) => {
     }
   });
   res.json({ results });
+});
+
+// ── Shutdown endpoint ─────────────────────────────────────────────────────
+app.post('/shutdown', (req, res) => {
+  res.json({ message: "Server shutting down..." });
+  console.log("🛑 Shutdown requested via API");
+  setTimeout(() => process.exit(0), 500);
 });
 
 // ── Downloader state persistence ──────────────────────────────────────────
@@ -654,7 +663,7 @@ function startServer(targetPort) {
   server.on('listening', () => {
     console.log(`\n  ✅  Server running at http://localhost:${port}`);
     console.log(`  📁  Serving files from: ${PUBLIC_DIR}\n`);
-    
+
     // Write active port to a state file
     try {
       fs.writeFileSync(path.resolve(__dirname, '.port'), String(port), 'utf8');

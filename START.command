@@ -102,18 +102,20 @@ fi
 
 # 5. Check if already running on any port (3001-3005)
 ALREADY_RUNNING=0
+RUNNING_PORT=3001
 for port in {3001..3005}; do
   RESPONSE=$(curl -s --max-time 1 http://localhost:$port/check 2>/dev/null)
   if [[ "$RESPONSE" == *"installed"* ]]; then
     ALREADY_RUNNING=1
+    RUNNING_PORT=$port
     break
   fi
 done
 
 if [ $ALREADY_RUNNING -eq 1 ]; then
-  echo "🚀 YTV_Downloader is already running!"
-  echo "Opening web interface at http://localhost:3000..."
-  open "http://localhost:3000"
+  echo "🚀 YTV_Downloader is already running on port $RUNNING_PORT!"
+  echo "Opening web interface at http://localhost:$RUNNING_PORT..."
+  open "http://localhost:$RUNNING_PORT"
   exit 0
 fi
 
@@ -133,9 +135,15 @@ for i in {1..30}; do
   sleep 0.1
 done
 
-# 8. Open browser to the UI (port 3000)
-echo "🚀 Opening web interface at http://localhost:3000..."
-open "http://localhost:3000"
+# Read the dynamically allocated port
+PORT=3001
+if [ -f .port ]; then
+  PORT=$(cat .port)
+fi
+
+# 8. Open browser to the UI
+echo "🚀 Opening web interface at http://localhost:$PORT..."
+open "http://localhost:$PORT"
 
 # Wait for background process to keep script alive
 wait $SERVER_PID

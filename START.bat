@@ -79,20 +79,22 @@ if not exist "%STARTUP_LNK%" (
 
 :: 5. Check if already running on any port (3001-3005)
 set ALREADY_RUNNING=0
+set RUNNING_PORT=3001
 for %%p in (3001 3002 3003 3004 3005) do (
     netstat -ano | findstr :%%p >nul 2>nul
     if !errorlevel! eq 0 (
         powershell -Command "$resp = Invoke-RestMethod -Uri 'http://localhost:%%p/check' -TimeoutSec 1 -ErrorAction SilentlyContinue; if ($resp -and $resp.installed -ne $null) { exit 0 } else { exit 1 }"
         if !errorlevel! eq 0 (
             set ALREADY_RUNNING=1
+            set RUNNING_PORT=%%p
         )
     )
 )
 
 if !ALREADY_RUNNING! eq 1 (
-    echo 🚀 YTV_Downloader is already running!
-    echo Opening web interface at http://localhost:3000...
-    start http://localhost:3000
+    echo 🚀 YTV_Downloader is already running on port !RUNNING_PORT!!
+    echo Opening web interface at http://localhost:!RUNNING_PORT!...
+    start http://localhost:!RUNNING_PORT!
     timeout /t 3 >nul
     exit /b 0
 )
@@ -107,6 +109,12 @@ start /b npm start
 :: Wait for server to bind and write the port file
 timeout /t 2 >nul
 
-:: 8. Open browser to the UI (port 3000)
-echo 🚀 Opening web interface at http://localhost:3000...
-start http://localhost:3000
+:: Read the dynamically allocated port
+set PORT=3001
+if exist .port (
+    set /p PORT=<.port
+)
+
+:: 8. Open browser to the UI
+echo 🚀 Opening web interface at http://localhost:!PORT!...
+start http://localhost:!PORT!

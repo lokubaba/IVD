@@ -1,7 +1,7 @@
 let APP_URL = 'http://localhost:3001';
 
-let currentTab  = null;
-let currentUrl  = null;
+let currentTab = null;
+let currentUrl = null;
 let serverOnline = false;
 const metadataCache = {};
 let detectedVideosGlobal = [];
@@ -33,7 +33,7 @@ async function discoverServer() {
           }
         }
       }
-    } catch (e) {}
+    } catch (e) { }
   }
   if (foundUrl) {
     APP_URL = foundUrl;
@@ -55,7 +55,7 @@ async function isVexServer(url) {
       const data = await r.json();
       return !!data.vex;
     }
-  } catch {}
+  } catch { }
   return false;
 }
 
@@ -86,7 +86,7 @@ async function isVexServer(url) {
         serverOnline = false;
       }
     }
-    
+
     updateServerIndicator(serverOnline);
 
     if (!serverOnline) {
@@ -101,7 +101,7 @@ async function isVexServer(url) {
 
     // Scan for videos on the page
     detectedVideosGlobal = await detectVideosInTab(tab.id);
-    
+
     // If no videos detected via DOM, fallback to current tab URL
     if (detectedVideosGlobal.length === 0 && tab.url) {
       detectedVideosGlobal = [{ url: tab.url, title: tab.title || 'Page Video' }];
@@ -118,7 +118,7 @@ async function isVexServer(url) {
 
 // ── Helpers ───────────────────────────────────────────────────────────
 function show(id) {
-  ['state-offline','state-sent','panel-ready'].forEach(s => {
+  ['state-offline', 'state-sent', 'panel-ready'].forEach(s => {
     const el = document.getElementById(s);
     if (el) el.style.display = s === id ? 'block' : 'none';
     if (el && s.startsWith('state')) el.classList.toggle('visible', s === id);
@@ -136,9 +136,9 @@ async function checkServer() {
 }
 
 function updateServerIndicator(online) {
-  const dot    = document.getElementById('serverDot');
+  const dot = document.getElementById('serverDot');
   const status = document.getElementById('serverStatus');
-  dot.className    = 'server-dot ' + (online ? 'online' : 'offline');
+  dot.className = 'server-dot ' + (online ? 'online' : 'offline');
   status.textContent = online ? 'App is running ✓' : 'App not running';
 }
 
@@ -160,7 +160,7 @@ function setupVideoSelector(videos) {
   if (videos.length >= 1) {
     wrapper.style.display = 'block';
     select.innerHTML = '';
-    
+
     // Instantly populate select elements with scraped video titles
     videos.forEach((video, index) => {
       const option = document.createElement('option');
@@ -236,13 +236,13 @@ function renderOrFetchDetails(url) {
 
 function renderVideoCard(info) {
   document.getElementById('videoTitle').textContent = info.title || 'Video File';
-  
+
   // Format subtitle: size | duration | resolution
   const parts = [];
   if (info.filesize && info.filesize !== 'unknown') parts.push(info.filesize);
   if (info.duration && info.duration !== 'unknown') parts.push(info.duration);
   if (info.resolution && info.resolution !== 'unknown') parts.push(info.resolution);
-  
+
   const subtitle = parts.length > 0 ? parts.join(' • ') : info.url;
   document.getElementById('videoUrlShort').textContent = subtitle;
 
@@ -267,7 +267,7 @@ async function loadVideoDetails(url) {
   // Show loading state in the card
   document.getElementById('videoTitle').textContent = 'Loading video info…';
   document.getElementById('videoUrlShort').textContent = url;
-  
+
   // Reset thumbnail placeholder
   const targetThumb = document.getElementById('thumbWrap') || document.querySelector('.video-card img.thumb');
   if (targetThumb) {
@@ -287,7 +287,7 @@ async function loadVideoDetails(url) {
         showMetadataError(url, info.error);
         return;
       }
-      
+
       metadataCache[url] = info;
       renderVideoCard(info);
     } else {
@@ -329,7 +329,7 @@ function showNoVideoPanel(title, description) {
 // ── Send to extractor ─────────────────────────────────────────────────
 async function sendToExtractor() {
   const btn = document.getElementById('sendBtn');
-  btn.disabled    = true;
+  btn.disabled = true;
   btn.textContent = '⏳ Sending…';
 
   try {
@@ -353,7 +353,7 @@ async function sendToExtractor() {
     if (resp.ok) {
       show('state-sent');
     } else {
-      btn.disabled    = false;
+      btn.disabled = false;
       btn.textContent = '⚡ Send to Extractor';
       btn.style.background = '#dc2626';
       btn.textContent = '✗ Failed — try again';
@@ -363,7 +363,7 @@ async function sendToExtractor() {
       }, 2000);
     }
   } catch (e) {
-    btn.disabled    = false;
+    btn.disabled = false;
     btn.style.background = '#dc2626';
     btn.textContent = '✗ App not reachable';
     setTimeout(() => {
@@ -375,7 +375,7 @@ async function sendToExtractor() {
 
 // ── Open app ──────────────────────────────────────────────────────────
 function openApp() {
-  chrome.tabs.create({ url: 'http://localhost:3000' });
+  chrome.tabs.create({ url: APP_URL });
 }
 
 // Bind button events dynamically to comply with Manifest V3 CSP
