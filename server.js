@@ -682,12 +682,29 @@ app.get('/download-progress', (req, res) => {
   req.on('close', () => ytdlp.kill());
 });
 
-// ── Open folder in Finder ─────────────────────────────────────────────────
+// ── Open folder in Finder/Explorer ─────────────────────────────────────────
 app.post('/open-folder', (req, res) => {
   const { folder } = req.body;
   if (!folder) return res.status(400).json({ error: 'No folder' });
-  // macOS: "open" opens Finder; Linux: "xdg-open"
-  const cmd = process.platform === 'darwin' ? `open "${folder}"` : `xdg-open "${folder}"`;
+
+  // If running in Docker, we cannot spawn a GUI window on the host
+  const isDocker = fs.existsSync('/.dockerenv');
+  if (isDocker) {
+    return res.json({
+      ok: false,
+      error: 'Cannot open folders directly from a Docker container. Please open your mapped host folder manually.'
+    });
+  }
+
+  let cmd;
+  if (process.platform === 'darwin') {
+    cmd = `open "${folder}"`;
+  } else if (process.platform === 'win32') {
+    cmd = `explorer "${folder}"`;
+  } else {
+    cmd = `xdg-open "${folder}"`;
+  }
+
   exec(cmd, (err) => {
     res.json(err ? { ok: false, error: err.message } : { ok: true });
   });
