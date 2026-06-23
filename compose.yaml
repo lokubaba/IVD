@@ -10,8 +10,9 @@ services:
     volumes:
       # Default downloads directory (maps to your Host's Downloads folder)
       - ~/Downloads:/app/downloads
-      # Custom folder mapping (uncomment and edit host path to download to other folders)
-      # - /path/to/host/custom/folder:/app/custom
+      # Map host home directory so you can dynamically save to any folder inside your user profile
+      - ~:/app/host-home
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - HOST_HOME=${HOME:-${USERPROFILE}}

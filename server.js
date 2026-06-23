@@ -431,15 +431,37 @@ app.get('/download-progress', (req, res) => {
   // If running in Docker, validate and redirect invalid host paths
   const isDocker = fs.existsSync('/.dockerenv');
   if (isDocker) {
-    const lowerFolder = destFolder.toLowerCase();
-    // Redirect if it points to a typical host downloads directory or uses tilde
-    if (lowerFolder.includes('downloads') || lowerFolder.includes('download') || destFolder.startsWith('~')) {
-      destFolder = '/app/downloads';
-    } else if (!fs.existsSync(destFolder)) {
-      // Redirect if it's a macOS/Linux/Windows home path or volume mount that doesn't exist inside the container
-      if (destFolder.startsWith('/Users') || destFolder.startsWith('/home') || destFolder.startsWith('/Volumes') || /^[a-zA-Z]:\\/.test(destFolder)) {
-        console.log(`[Docker] Redirecting inaccessible host path "${destFolder}" to "/app/downloads"`);
+    const hostHome = process.env.HOST_HOME;
+
+    // Check if the folder is inside the host home (either starts with ~ or starts with hostHome path)
+    if (destFolder.startsWith('~')) {
+      const relativePart = destFolder.slice(1);
+      // Map to downloads folder if relativePart matches downloads
+      if (relativePart.toLowerCase().startsWith('/downloads') || relativePart.toLowerCase() === '/downloads') {
+        destFolder = path.join('/app/downloads', relativePart.slice(10));
+      } else {
+        destFolder = path.join('/app/host-home', relativePart);
+      }
+      console.log(`[Docker] Translated "~" path to container-mounted folder: "${destFolder}"`);
+    } else if (hostHome && destFolder.startsWith(hostHome)) {
+      const relativePart = destFolder.slice(hostHome.length);
+      if (relativePart.toLowerCase().startsWith('/downloads') || relativePart.toLowerCase() === '/downloads') {
+        destFolder = path.join('/app/downloads', relativePart.slice(10));
+      } else {
+        destFolder = path.join('/app/host-home', relativePart);
+      }
+      console.log(`[Docker] Translated host path "${hostHome}" to container-mounted folder: "${destFolder}"`);
+    } else {
+      const lowerFolder = destFolder.toLowerCase();
+      // Redirect if it points to a typical host downloads directory or uses tilde
+      if (lowerFolder.includes('downloads') || lowerFolder.includes('download')) {
         destFolder = '/app/downloads';
+      } else if (!fs.existsSync(destFolder)) {
+        // Redirect if it's a macOS/Linux/Windows home path or volume mount that doesn't exist inside the container
+        if (destFolder.startsWith('/Users') || destFolder.startsWith('/home') || destFolder.startsWith('/Volumes') || /^[a-zA-Z]:\\/.test(destFolder)) {
+          console.log(`[Docker] Redirecting inaccessible host path "${destFolder}" to "/app/downloads"`);
+          destFolder = '/app/downloads';
+        }
       }
     }
   }
