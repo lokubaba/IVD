@@ -8,7 +8,7 @@ let detectedVideosGlobal = [];
 
 // ── Auto-discovery scanning ──
 async function discoverServer() {
-  const ports = [3000, 3001, 3002, 3003, 3004, 3005];
+  const ports = [3001, 3002, 3003, 3004, 3005, 3000];
   let foundUrl = null;
   for (const port of ports) {
     const url = `http://localhost:${port}`;

@@ -24,7 +24,7 @@ Adds a one-click **⚡ Extract** button directly on YouTube video pages, and an 
 
 ## Requirements
 - The **yt-stream extractor app must be running** (double-click `START.command`)
-- The app runs at `http://localhost:3000`
+- The app runs at `http://localhost:3001` (or next available port up to `3005`)
 - URLs sent from the extension appear automatically in the app's table
 
 ## Notes

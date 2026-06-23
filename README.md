@@ -29,7 +29,7 @@ A standalone, lightweight tool to paste YouTube URLs, extract direct stream URLs
    ```bash
    npm start
    ```
-   The app will run at `http://localhost:3000`.
+   The app will run at `http://localhost:3001` (or next available port up to `3005`).
 
 ### Option 2: Docker Setup (Recommended for any device)
 
