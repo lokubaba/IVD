@@ -8,7 +8,10 @@ services:
     ports:
       - "3000:3000"
     volumes:
+      # Default downloads directory (maps to your Host's Downloads folder)
       - ~/Downloads:/app/downloads
+      # Custom folder mapping (uncomment and edit host path to download to other folders)
+      # - /path/to/host/custom/folder:/app/custom
     environment:
       - NODE_ENV=production
       - PORT=3000

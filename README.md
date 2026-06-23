@@ -39,6 +39,12 @@ docker compose up -d --build
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser. Downloaded files are mapped to your host's `Downloads` folder.
 
+#### Downloading to a Custom Folder (Docker)
+Because Docker runs in an isolated container, it cannot access host folders unless they are mapped as volumes:
+1. Open `compose.yaml` and add your custom folder under `volumes:`, mapping it to a container path (e.g. `- /path/to/host/custom/folder:/app/custom`).
+2. Run `docker compose up -d --build` to apply the changes.
+3. In the Web UI's Download Location field, enter `/app/custom`. Files saved there will automatically sync back to your custom host folder!
+
 ---
 
 ## Chrome Extension Setup
