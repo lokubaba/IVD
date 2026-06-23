@@ -1622,7 +1622,15 @@
         body: JSON.stringify({ folder: r.dl.destFolder })
       })
         .then(res => res.json())
-        .then(d => { if (!d.ok) toast('Could not open folder: ' + d.error); });
+        .then(d => {
+          if (!d.ok) {
+            if (d.docker) {
+              window.open('/downloads', '_blank');
+            } else {
+              toast('Could not open folder: ' + d.error);
+            }
+          }
+        });
     }
 
     // ── Download with SSE progress ─────────────────────────────────────────

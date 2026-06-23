@@ -692,7 +692,8 @@ app.post('/open-folder', (req, res) => {
   if (isDocker) {
     return res.json({
       ok: false,
-      error: 'Cannot open folders directly from a Docker container. Please open your mapped host folder manually (e.g., your Downloads folder).'
+      docker: true,
+      error: 'Cannot open folders directly from a Docker container. Redirecting you to the built-in Web File Browser...'
     });
   }
 
@@ -709,6 +710,224 @@ app.post('/open-folder', (req, res) => {
   exec(cmd, (err) => {
     res.json(err ? { ok: false, error: err.message } : { ok: true });
   });
+});
+
+// ── Built-in Web File Browser for Docker ──────────────────────────────────
+app.get('/downloads', (req, res) => {
+  const isDocker = fs.existsSync('/.dockerenv');
+  const downloadsDir = isDocker ? '/app/downloads' : path.join(os.homedir(), 'Downloads');
+
+  if (!fs.existsSync(downloadsDir)) {
+    try {
+      fs.mkdirSync(downloadsDir, { recursive: true });
+    } catch (err) {
+      return res.status(500).send(`<h3>Failed to access or create downloads directory: ${err.message}</h3>`);
+    }
+  }
+
+  fs.readdir(downloadsDir, { withFileTypes: true }, (err, files) => {
+    if (err) return res.status(500).send(err.message);
+
+    let html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>IVD — Web File Browser</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #06b6d4;
+      --hover: #273549;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 40px 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 800px;
+    }
+    header {
+      margin-bottom: 30px;
+    }
+    h1 {
+      color: var(--text);
+      font-size: 28px;
+      font-weight: 700;
+      margin: 0 0 8px 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .subtitle {
+      color: var(--text-muted);
+      margin: 0;
+      font-size: 14px;
+    }
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      margin-bottom: 24px;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+    .back-btn:hover {
+      color: var(--text);
+    }
+    .file-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: border-color 0.2s, background-color 0.2s;
+    }
+    .file-card:hover {
+      border-color: var(--primary);
+      background: var(--hover);
+    }
+    .file-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+    .file-name {
+      color: var(--text);
+      font-weight: 600;
+      font-size: 15px;
+      text-decoration: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: color 0.15s;
+    }
+    .file-name:hover {
+      color: var(--primary);
+    }
+    .file-meta {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    .action-btn {
+      background: var(--primary);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: opacity 0.15s;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .action-btn:hover {
+      opacity: 0.9;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+      background: var(--card-bg);
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+    }
+    .empty-state span {
+      font-size: 48px;
+      display: block;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/" class="back-btn">← Back to Extractor</a>
+    <header>
+      <h1>📁 Docker Downloads Directory</h1>
+      <p class="subtitle">Path inside container: <code>/app/downloads</code> (Mounted to your host PC's <code>~/Downloads</code> folder)</p>
+    </header>
+
+    <div class="file-list">
+    `;
+
+    let fileCount = 0;
+    files.forEach(file => {
+      if (file.isFile() && !file.name.startsWith('.')) {
+        fileCount++;
+        let sizeStr = '—';
+        try {
+          const stats = fs.statSync(path.join(downloadsDir, file.name));
+          const bytes = stats.size;
+          if (bytes > 1e9) sizeStr = (bytes / 1e9).toFixed(2) + ' GB';
+          else if (bytes > 1e6) sizeStr = (bytes / 1e6).toFixed(1) + ' MB';
+          else sizeStr = (bytes / 1e3).toFixed(0) + ' KB';
+        } catch { }
+
+        html += `
+      <div class="file-card">
+        <div class="file-info">
+          <a href="/download-file/${encodeURIComponent(file.name)}" class="file-name" target="_blank" title="${file.name}">${file.name}</a>
+          <span class="file-meta">Size: ${sizeStr}</span>
+        </div>
+        <a href="/download-file/${encodeURIComponent(file.name)}" class="action-btn" download="${file.name}">
+          <span>⬇</span> Download
+        </a>
+      </div>
+        `;
+      }
+    });
+
+    if (fileCount === 0) {
+      html += `
+      <div class="empty-state">
+        <span>🎬</span>
+        <p>No downloaded files found in this directory yet.</p>
+      </div>
+      `;
+    }
+
+    html += `
+    </div>
+  </div>
+</body>
+</html>
+    `;
+    res.send(html);
+  });
+});
+
+// Route to play/download individual files from the Web File Browser
+app.get('/download-file/:name', (req, res) => {
+  const isDocker = fs.existsSync('/.dockerenv');
+  const downloadsDir = isDocker ? '/app/downloads' : path.join(os.homedir(), 'Downloads');
+  const filePath = path.join(downloadsDir, decodeURIComponent(req.params.name));
+
+  if (fs.existsSync(filePath)) {
+    res.sendFile(filePath);
+  } else {
+    res.status(404).send('File not found');
+  }
 });
 
 const urlTitles = new Map();
