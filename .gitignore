@@ -4,3 +4,13 @@ downloads/
 .DS_Store
 *.mp4
 *.csv
+
+# Local port configurations
+.port
+
+# Packaged archives
+*.zip
+
+# Log files
+*.log
+*.err

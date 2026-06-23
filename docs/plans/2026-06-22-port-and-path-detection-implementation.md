@@ -13,7 +13,7 @@
 ### Task 1: Self-Healing PATH Augmentation in `server.js`
 
 **Files:**
-- Modify: `/Users/lokesh/App Developement/YTV_Downloader/server.js:1-12`
+- Modify: `server.js:1-12`
 
 **Step 1: Write path augmentation logic at the top of server.js**
 
@@ -55,7 +55,7 @@ git commit -m "feat: add path augmentation to server.js for launchd contexts"
 ### Task 2: Graceful Server-Side Port Allocation & State Persistence
 
 **Files:**
-- Modify: `/Users/lokesh/App Developement/YTV_Downloader/server.js:10, 625-629`
+- Modify: `server.js:10, 625-629`
 
 **Step 1: Replace app.listen with custom server wrapper**
 Replace:
@@ -124,7 +124,7 @@ git commit -m "feat: implement dynamic port scanner and persistent .port state f
 ### Task 3: Chrome Extension URL Redirection
 
 **Files:**
-- Modify: `/Users/lokesh/App Developement/YTV_Downloader/chrome-extension/popup.js:377-380`
+- Modify: `chrome-extension/popup.js:377-380`
 
 **Step 1: Redirect popup buttons to port 3000**
 Replace:
@@ -155,8 +155,8 @@ git commit -m "feat: configure chrome extension to open webapp on port 3000"
 ### Task 4: Simplified Launch Scripts
 
 **Files:**
-- Modify: `/Users/lokesh/App Developement/YTV_Downloader/START.command`
-- Modify: `/Users/lokesh/App Developement/YTV_Downloader/START.bat`
+- Modify: `START.command`
+- Modify: `START.bat`
 
 **Step 1: Simplify START.command (macOS)**
 Replace lines 103-131 of `START.command` with:
