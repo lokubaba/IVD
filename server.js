@@ -692,17 +692,18 @@ app.post('/open-folder', (req, res) => {
   if (isDocker) {
     return res.json({
       ok: false,
-      error: 'Cannot open folders directly from a Docker container. Please open your mapped host folder manually.'
+      error: 'Cannot open folders directly from a Docker container. Please open your mapped host folder manually (e.g., your Downloads folder).'
     });
   }
 
+  const normalizedFolder = path.normalize(folder);
   let cmd;
   if (process.platform === 'darwin') {
-    cmd = `open "${folder}"`;
+    cmd = `open "${normalizedFolder}"`;
   } else if (process.platform === 'win32') {
-    cmd = `explorer "${folder}"`;
+    cmd = `explorer "${normalizedFolder}"`;
   } else {
-    cmd = `xdg-open "${folder}"`;
+    cmd = `xdg-open "${normalizedFolder}"`;
   }
 
   exec(cmd, (err) => {
@@ -763,7 +764,10 @@ app.post('/shutdown', (req, res) => {
 });
 
 // ── Downloader state persistence ──────────────────────────────────────────
-const STATE_FILE = path.resolve(__dirname, 'yt_state.json');
+const isDockerContainer = fs.existsSync('/.dockerenv');
+const STATE_FILE = isDockerContainer
+  ? path.resolve('/app/downloads', '.yt_state.json')
+  : path.resolve(__dirname, 'yt_state.json');
 
 app.get('/state', (req, res) => {
   try {
